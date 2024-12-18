@@ -231,20 +231,24 @@ class Loader(BasicDataset):
         self.n_user = 0
         self.m_item = 0
         train_file = path + '/train.txt'
+        valid_file = path + '/valid.txt'
         test_file = path + '/test.txt'
         self.path = path
         trainUniqueUsers, trainItem, trainUser = [], [], []
+        validUniqueUsers, validItem, validUser = [], [], []
         testUniqueUsers, testItem, testUser = [], [], []
         self.traindataSize = 0
+        self.validDataSize = 0
         self.testDataSize = 0
 
         with open(train_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    if path == '../data/amazon-book':
-                        l = l.strip().split(' ')
-                    else :
-                        l = l.strip('\n').split(' ')
+                    # if path == '../data/amazon-book':
+                    #     l = l.strip().split(' ')
+                    # else :
+                    #     l = l.strip('\n').split(' ')
+                    l = l.strip('\n').split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     trainUniqueUsers.append(uid)
@@ -257,13 +261,30 @@ class Loader(BasicDataset):
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
 
+        with open(valid_file) as f:
+            for l in f.readlines():
+                if len(l) > 0:
+                    l = l.strip('\n').split(' ')
+                    items = [int(i) for i in l[1:]]
+                    uid = int(l[0])
+                    validUniqueUsers.append(uid)
+                    validUser.extend([uid] * len(items))
+                    validItem.extend(items)
+                    self.m_item = max(self.m_item, max(items))
+                    self.n_user = max(self.n_user, uid)
+                    self.validDataSize += len(items)
+        self.validUniqueUsers = np.array(validUniqueUsers)
+        self.validUser = np.array(validUser)
+        self.validItem = np.array(validItem)
+
         with open(test_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    if path == '../data/amazon-book':
-                        l = l.strip().split(' ')
-                    else :
-                        l = l.strip('\n').split(' ')
+                    # if path == '../data/amazon-book':
+                    #     l = l.strip().split(' ')
+                    # else :
+                    #     l = l.strip('\n').split(' ')
+                    l = l.strip('\n').split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     testUniqueUsers.append(uid)
@@ -279,9 +300,12 @@ class Loader(BasicDataset):
         self.testItem = np.array(testItem)
         
         self.Graph = None
+        print(f"{self.n_user} # of Users")
+        print(f"{self.m_item} # of Items")
         print(f"{self.trainDataSize} interactions for training")
+        print(f"{self.validDataSize} interactions for validation")
         print(f"{self.testDataSize} interactions for testing")
-        print(f"{self.trainDataSize + self.testDataSize} interactions in total")
+        print(f"{self.trainDataSize + self.testDataSize + self.validDataSize} interactions in total")
         print(f"{world.dataset} Sparsity : {(self.trainDataSize + self.testDataSize) / self.n_users / self.m_items}")
 
         # (users,items), bipartite graph
@@ -293,6 +317,7 @@ class Loader(BasicDataset):
         self.items_D[self.items_D == 0.] = 1.
         # pre-calculate
         self._allPos = self.getUserPosItems(list(range(self.n_user)))
+        self.__validDict = self.__build_valid()
         self.__testDict = self.__build_test()
         print(f"{world.dataset} is ready to go")
 
@@ -307,6 +332,10 @@ class Loader(BasicDataset):
     @property
     def trainDataSize(self):
         return self.traindataSize
+    
+    @property
+    def validDict(self):
+        return self.__validDict
     
     @property
     def testDict(self):
@@ -374,6 +403,20 @@ class Loader(BasicDataset):
                 self.Graph = self.Graph.coalesce().to(world.device)
                 print("don't split the matrix")
         return self.Graph
+    
+    def __build_valid(self):
+        """
+        return:
+            dict: {user: [items]}
+        """
+        valid_data = {}
+        for i, item in enumerate(self.validItem):
+            user = self.validUser[i]
+            if valid_data.get(user):
+                valid_data[user].append(item)
+            else:
+                valid_data[user] = [item]
+        return valid_data
 
     def __build_test(self):
         """
