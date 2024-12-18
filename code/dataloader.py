@@ -306,7 +306,7 @@ class Loader(BasicDataset):
         print(f"{self.validDataSize} interactions for validation")
         print(f"{self.testDataSize} interactions for testing")
         print(f"{self.trainDataSize + self.testDataSize + self.validDataSize} interactions in total")
-        print(f"{world.dataset} Sparsity : {(self.trainDataSize + self.testDataSize) / self.n_users / self.m_items}")
+        print(f"{world.dataset} Sparsity : {(self.trainDataSize + self.validDataSize + self.testDataSize) / self.n_users / self.m_items}")
 
         # (users,items), bipartite graph
         self.UserItemNet = csr_matrix((np.ones(len(self.trainUser)), (self.trainUser, self.trainItem)),
