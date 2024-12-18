@@ -241,7 +241,10 @@ class Loader(BasicDataset):
         with open(train_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ')
+                    if path == '../data/amazon-book':
+                        l = l.strip().split(' ')
+                    else :
+                        l = l.strip('\n').split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     trainUniqueUsers.append(uid)
@@ -257,7 +260,10 @@ class Loader(BasicDataset):
         with open(test_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ')
+                    if path == '../data/amazon-book':
+                        l = l.strip().split(' ')
+                    else :
+                        l = l.strip('\n').split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     testUniqueUsers.append(uid)
