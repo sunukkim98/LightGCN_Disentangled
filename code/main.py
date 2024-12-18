@@ -1,3 +1,4 @@
+print("main.py is running!")
 import world
 import utils
 from world import cprint

@@ -4,19 +4,19 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from dataloader import LastFM, Loader
 
-if __name__ == "__main__":
-    # Path configurations
-    gowalla_path = "../data/gowalla"
-    amazon_path = "../data/amazon-book"
-    yelp_path = "../data/yelp2018"
 
-    print("\n" + "="*50 + "\n")
+# Path configurations
+gowalla_path = "../data/gowalla"
+amazon_path = "../data/amazon-book"
+yelp_path = "../data/yelp2018"
 
-    # Validate Gowalla dataset
-    gowalla_dataset = Loader(path=gowalla_path)
+print("\n" + "="*50 + "\n")
 
-    # Validate Amazon-books dataset
-    amazon_dataset = Loader(path=amazon_path)
+# Validate Gowalla dataset
+gowalla_dataset = Loader(path=gowalla_path)
 
-    # Validate yelp2018 dataset
-    yelp_dataset = Loader(path=yelp_path)
+# Validate Amazon-books dataset
+amazon_dataset = Loader(path=amazon_path)
+
+# Validate yelp2018 dataset
+yelp_dataset = Loader(path=yelp_path)
