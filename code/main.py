@@ -1,4 +1,4 @@
-print("main.py is running!")
+import os
 import world
 import utils
 from world import cprint
@@ -14,6 +14,12 @@ print(">>SEED:", world.seed)
 # ==============================
 import register
 from register import dataset
+
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+if not os.path.exists('embs'):
+    os.mkdir('embs')
 
 Recmodel = register.MODELS[world.model_name](world.config, dataset)
 Recmodel = Recmodel.to(world.device)
@@ -43,10 +49,12 @@ try:
         start = time.time()
         if epoch %10 == 0:
             cprint("[TEST]")
-            Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
+            Procedure.Valid(dataset, Recmodel, epoch, w, world.config['multicore'])
         output_information = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
         print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] {output_information}')
         torch.save(Recmodel.state_dict(), weight_file)
+
+    Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
 finally:
     if world.tensorboard:
         w.close()
