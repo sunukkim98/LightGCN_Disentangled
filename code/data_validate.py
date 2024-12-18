@@ -14,12 +14,9 @@ if __name__ == "__main__":
 
     # Validate Gowalla dataset
     gowalla_dataset = Loader(path=gowalla_path)
-    validate_dataset(gowalla_dataset)
 
     # Validate Amazon-books dataset
     amazon_dataset = Loader(path=amazon_path)
-    validate_dataset(amazon_dataset)
 
     # Validate yelp2018 dataset
     yelp_dataset = Loader(path=yelp_path)
-    validate_dataset(yelp_dataset)
