@@ -47,6 +47,8 @@ config['pretrain'] = args.pretrain
 config['A_split'] = False
 config['bigdata'] = False
 
+config['save_layer_emb'] = args.save_layer_emb
+
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
 CORES = multiprocessing.cpu_count() // 2

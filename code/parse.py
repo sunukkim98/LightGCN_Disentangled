@@ -41,6 +41,8 @@ def parse_args():
     parser.add_argument('--epochs', type=int,default=1000)
     parser.add_argument('--multicore', type=int, default=0, help='whether we use multiprocessing or not in test')
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
+    parser.add_argument('--gpu', type=int, default=0, help='gpu number')
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
+    parser.add_argument('--save_layer_emb', type=int, default=0)
     return parser.parse_args()
