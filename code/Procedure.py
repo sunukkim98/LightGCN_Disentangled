@@ -234,3 +234,80 @@ def Valid(dataset, Recmodel, epoch, w=None, multicore=0):
             pool.close()
         print(results)
         return results
+    
+def getUsersRating(users, all_users, all_items):
+    users_emb = all_users[users.long()]
+    items_emb = all_items
+    rating = nn.Sigmoid()(torch.matmul(users_emb, items_emb.t()))
+    return rating   
+    
+def Test_Offline(dataset, all_users, all_items, w=None, multicore=0):
+    u_batch_size = world.config['test_u_batch_size']
+    dataset: utils.BasicDataset
+    testDict: dict = dataset.testDict
+
+    max_K = max(world.topks)
+    
+    if multicore == 1:
+        pool = multiprocessing.Pool(CORES)
+    results = {'precision': np.zeros(len(world.topks)),
+               'recall': np.zeros(len(world.topks)),
+               'ndcg': np.zeros(len(world.topks))}
+    
+    with torch.no_grad():
+        users = list(testDict.keys())
+        try:
+            assert u_batch_size <= len(users) / 10
+        except AssertionError:
+            print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
+            
+        users_list = []
+        rating_list = []
+        groundTrue_list = []
+
+        total_batch = len(users) // u_batch_size + 1
+        for batch_users in utils.minibatch(users, batch_size=u_batch_size):
+            allPos = dataset.getUserPosItems(batch_users)
+            groundTrue = [testDict[u] for u in batch_users]
+            batch_users_gpu = torch.Tensor(batch_users).long()
+            batch_users_gpu = batch_users_gpu.to(world.device)
+
+            rating = getUsersRating(batch_users_gpu, all_users, all_items)
+
+            exclude_index = []
+            exclude_items = []
+            for range_i, items in enumerate(allPos):
+                exclude_index.extend([range_i] * len(items))
+                exclude_items.extend(items)
+            rating[exclude_index, exclude_items] = -(1<<10)
+            _, rating_K = torch.topk(rating, k=max_K)
+            rating = rating.cpu().numpy()
+
+            del rating
+            users_list.append(batch_users)
+            rating_list.append(rating_K.cpu())
+            groundTrue_list.append(groundTrue)
+
+        assert total_batch == len(users_list)
+        X = zip(rating_list, groundTrue_list)
+        
+        if multicore == 1:
+            pre_results = pool.map(test_one_batch, X)
+        else:
+            pre_results = []
+            for x in X:
+                pre_results.append(test_one_batch(x))
+        
+        scale = float(u_batch_size/len(users))
+        for result in pre_results:
+            results['recall'] += result['recall']
+            results['precision'] += result['precision']
+            results['ndcg'] += result['ndcg']
+        results['recall'] /= float(len(users))
+        results['precision'] /= float(len(users))
+        results['ndcg'] /= float(len(users))
+        
+        if multicore == 1:
+            pool.close()
+        
+        return results
