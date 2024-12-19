@@ -32,7 +32,7 @@ def parse_args():
                         help="available datasets: [lastfm, gowalla, yelp2018, amazon-book]")
     parser.add_argument('--path', type=str,default="./checkpoints",
                         help="path to save weights")
-    parser.add_argument('--topks', nargs='?',default="[20]",
+    parser.add_argument('--topks', nargs='?',default="[20,40]",
                         help="@k test list")
     parser.add_argument('--tensorboard', type=int,default=1,
                         help="enable tensorboard")
