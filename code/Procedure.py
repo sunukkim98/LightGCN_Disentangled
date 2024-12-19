@@ -169,7 +169,6 @@ def Valid(dataset, Recmodel, epoch, w=None, multicore=0):
     results = {'precision': np.zeros(len(world.topks)),
                'recall': np.zeros(len(world.topks)),
                'ndcg': np.zeros(len(world.topks))}
-    print("for debugging:", results)
     
     with torch.no_grad():
         users = list(validDict.keys())
