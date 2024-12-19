@@ -405,7 +405,7 @@ class Loader(BasicDataset):
         print("loading adjacency matrix")
         if self.Graph is None:
             try:
-                pre_adj_mat = sp.load_npz(self.path + f'/s_pre_adj_mat_{self.alpha}_{self.beta}.npz')
+                pre_adj_mat = sp.load_npz(self.path + '/s_pre_adj_mat.npz')
                 print("successfully loaded...")
                 norm_adj = pre_adj_mat
             except :
@@ -417,25 +417,19 @@ class Loader(BasicDataset):
                 adj_mat[:self.n_users, self.n_users:] = R
                 adj_mat[self.n_users:, :self.n_users] = R.T
                 adj_mat = adj_mat.todok()
+                # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
                 
-                rowsum_left = np.array(adj_mat.sum(axis=1)) ** -self.alpha
-                rowsum_right = np.array(adj_mat.sum(axis=1)) ** -self.beta
+                rowsum = np.array(adj_mat.sum(axis=1))
+                d_inv = np.power(rowsum, -0.5).flatten()
+                d_inv[np.isinf(d_inv)] = 0.
+                d_mat = sp.diags(d_inv)
                 
-                d_inv_left = rowsum_left.flatten()                
-                d_inv_left[np.isinf(d_inv_left)] = 0.
-
-                d_inv_right = rowsum_right.flatten()                
-                d_inv_right[np.isinf(d_inv_right)] = 0.
-
-                d_mat_left = sp.diags(d_inv_left)
-                d_mat_right = sp.diags(d_inv_right)
-
-                norm_adj = d_mat_left.dot(adj_mat)
-                norm_adj = norm_adj.dot(d_mat_right)
+                norm_adj = d_mat.dot(adj_mat)
+                norm_adj = norm_adj.dot(d_mat)
                 norm_adj = norm_adj.tocsr()
                 end = time()
                 print(f"costing {end-s}s, saved norm_mat...")
-                sp.save_npz(self.path + f'/s_pre_adj_mat_{self.alpha}_{self.beta}.npz', norm_adj)
+                sp.save_npz(self.path + '/s_pre_adj_mat.npz', norm_adj)
 
             if self.split == True:
                 self.Graph = self._split_A_hat(norm_adj)
