@@ -402,26 +402,48 @@ class Loader(BasicDataset):
     #             print("don't split the matrix")
     #     return self.Graph
     def getSparseGraph(self):
+        print("loading adjacency matrix")
         if self.Graph is None:
-            user_dim = torch.LongTensor(self.trainUser)
-            item_dim = torch.LongTensor(self.trainItem)
-            
-            first_sub = torch.stack([user_dim, item_dim + self.n_users])
-            second_sub = torch.stack([item_dim+self.n_users, user_dim])
-            index = torch.cat([first_sub, second_sub], dim=1)
-            data = torch.ones(index.size(-1)).int()
-            self.Graph = torch.sparse.IntTensor(index, data, torch.Size([self.n_users+self.m_items, self.n_users+self.m_items]))
-            dense = self.Graph.to_dense()
-            D = torch.sum(dense, dim=1).float()
-            D[D==0.] = 1.
-            D_sqrt = torch.sqrt(D).unsqueeze(dim=0)
-            dense = dense/D_sqrt
-            dense = dense/D_sqrt.t()
-            index = dense.nonzero()
-            data  = dense[dense >= 1e-9]
-            assert len(index) == len(data)
-            self.Graph = torch.sparse.FloatTensor(index.t(), data, torch.Size([self.n_users+self.m_items, self.n_users+self.m_items]))
-            self.Graph = self.Graph.coalesce().to(world.device)
+            try:
+                pre_adj_mat = sp.load_npz(self.path + f'/s_pre_adj_mat_{self.alpha}_{self.beta}.npz')
+                print("successfully loaded...")
+                norm_adj = pre_adj_mat
+            except :
+                print("generating adjacency matrix")
+                s = time()
+                adj_mat = sp.dok_matrix((self.n_users + self.m_items, self.n_users + self.m_items), dtype=np.float32)
+                adj_mat = adj_mat.tolil()
+                R = self.UserItemNet.tolil()
+                adj_mat[:self.n_users, self.n_users:] = R
+                adj_mat[self.n_users:, :self.n_users] = R.T
+                adj_mat = adj_mat.todok()
+                
+                rowsum_left = np.array(adj_mat.sum(axis=1)) ** -self.alpha
+                rowsum_right = np.array(adj_mat.sum(axis=1)) ** -self.beta
+                
+                d_inv_left = rowsum_left.flatten()                
+                d_inv_left[np.isinf(d_inv_left)] = 0.
+
+                d_inv_right = rowsum_right.flatten()                
+                d_inv_right[np.isinf(d_inv_right)] = 0.
+
+                d_mat_left = sp.diags(d_inv_left)
+                d_mat_right = sp.diags(d_inv_right)
+
+                norm_adj = d_mat_left.dot(adj_mat)
+                norm_adj = norm_adj.dot(d_mat_right)
+                norm_adj = norm_adj.tocsr()
+                end = time()
+                print(f"costing {end-s}s, saved norm_mat...")
+                sp.save_npz(self.path + f'/s_pre_adj_mat_{self.alpha}_{self.beta}.npz', norm_adj)
+
+            if self.split == True:
+                self.Graph = self._split_A_hat(norm_adj)
+                print("done split matrix")
+            else:
+                self.Graph = self._convert_sp_mat_to_sp_tensor(norm_adj)
+                self.Graph = self.Graph.coalesce().to(world.device)
+                print("don't split the matrix")
         return self.Graph
 
     def __build_valid(self):
