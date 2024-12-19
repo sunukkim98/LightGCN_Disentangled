@@ -65,30 +65,12 @@ try:
 
         if (epoch + 1) % 5 == 0:
             cprint("[VALIDATION]")
-            valid_results = Procedure.Valid(dataset, 
-                                            Recmodel, 
-                                            epoch, 
-                                            w, 
-                                            world.config['multicore'])
-            valid_log = [valid_results['ndcg'][0], 
-                         valid_results['ndcg'][1], 
-                         valid_results['recall'][0], 
-                         valid_results['recall'][1], 
-                         valid_results['precision'][0], 
-                         valid_results['precision'][1]]
+            valid_results = Procedure.Valid(dataset, Recmodel, epoch, w, world.config['multicore'])
+            valid_log = [valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['recall'][0], valid_results['recall'][1], valid_results['precision'][0], valid_results['precision'][1]]
             
             cprint("[TEST]")
-            test_results = Procedure.Test(dataset, 
-                                          Recmodel, 
-                                          epoch, 
-                                          w, 
-                                          world.config['multicore'])
-            test_log = [test_results['ndcg'][0], 
-                        test_results['ndcg'][1], 
-                        test_results['recall'][0], 
-                        test_results['recall'][1], 
-                        test_results['precision'][0], 
-                        test_results['precision'][1]]
+            test_results = Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
+            test_log = [test_results['ndcg'][0], test_results['ndcg'][1], test_results['recall'][0], test_results['recall'][1], test_results['precision'][0], test_results['precision'][1]]
             
             with open(log_path, 'a') as f:
                 f.write(f'valid ' + ' '.join([str(x) for x in valid_log]) + '\n')
