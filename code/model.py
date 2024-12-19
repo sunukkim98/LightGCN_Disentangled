@@ -60,6 +60,9 @@ class PureMF(BasicModel):
         scores = torch.matmul(users_emb, items_emb.t())
         return self.f(scores)
     
+    def computer(self):
+        return self.embedding_user.weight, self.embedding_item.weight
+    
     def bpr_loss(self, users, pos, neg):
         users_emb = self.embedding_user(users.long())
         pos_emb   = self.embedding_item(pos.long())
@@ -86,7 +89,7 @@ class LightGCN(BasicModel):
                  dataset:BasicDataset):
         super(LightGCN, self).__init__()
         self.config = config
-        self.dataset : dataloader.BasicDataset = dataset
+        self.dataset : BasicDataset = dataset
         self.__init_weight()
 
     def __init_weight(self):
@@ -168,18 +171,20 @@ class LightGCN(BasicModel):
         embs = torch.stack(embs, dim=1)
         #print(embs.size())
         light_out = torch.mean(embs, dim=1)
+        _users, _items = torch.split(embs, [self.num_users, self.num_items])
         users, items = torch.split(light_out, [self.num_users, self.num_items])
-        return users, items
+        return users, items, _users, _items
     
     def getUsersRating(self, users):
-        all_users, all_items = self.computer()
+        if all_users is None or all_items is None:
+            all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
         rating = self.f(torch.matmul(users_emb, items_emb.t()))
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
-        all_users, all_items = self.computer()
+        all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
@@ -205,7 +210,7 @@ class LightGCN(BasicModel):
        
     def forward(self, users, items):
         # compute embedding
-        all_users, all_items = self.computer()
+        all_users, all_items, _, _ = self.computer()
         # print('forward')
         #all_users, all_items = self.computer()
         users_emb = all_users[users]
