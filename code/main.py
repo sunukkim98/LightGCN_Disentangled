@@ -67,7 +67,6 @@ try:
         if (epoch + 1) % 5 == 0:
             cprint("[VALIDATION]")
             valid_results = Procedure.Valid(dataset, Recmodel, epoch, w, world.config['multicore'])
-            print(valid_results)
             valid_log = [valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['recall'][0], valid_results['recall'][1], valid_results['precision'][0], valid_results['precision'][1]]
             
             cprint("[TEST]")
@@ -78,8 +77,9 @@ try:
                 f.write(f'valid ' + ' '.join([str(x) for x in valid_log]) + '\n')
                 f.write(f'test ' + ' '.join([str(x) for x in test_log]) + '\n')
 
-            if valid_results['ndcg'][0] > best_valid:
-                best_valid = valid_results['ndcg'][0]
+            if valid_results[world.eval_metric][0] > best_valid:
+                best_valid = valid_results[world.eval_metric][0]
+                print("best_valid:", best_valid)
                 patience = 0
                 
                 Recmodel.eval()

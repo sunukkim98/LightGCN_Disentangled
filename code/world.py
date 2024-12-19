@@ -48,6 +48,7 @@ config['A_split'] = False
 config['bigdata'] = False
 
 config['save_layer_emb'] = args.save_layer_emb
+config['eval_metric'] = args.eval_metric
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
@@ -73,6 +74,8 @@ comment = args.comment
 # let pandas shut up
 from warnings import simplefilter
 simplefilter(action="ignore", category=FutureWarning)
+
+eval_metric = args.eval_metric
 
 
 
