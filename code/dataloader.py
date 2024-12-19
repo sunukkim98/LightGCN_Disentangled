@@ -226,7 +226,7 @@ class Loader(BasicDataset):
         cprint(f'loading [{path}]')
         self.split = config['A_split']
         self.folds = config['A_n_fold']
-        self.mode_dict = {'train': 0, "test": 1}
+        self.mode_dict = {'train': 0, "valid": 1, "test": 2}
         self.mode = self.mode_dict['train']
         self.n_user = 0
         self.m_item = 0
