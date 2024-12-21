@@ -27,9 +27,9 @@ config = f'{world.args.dataset}_seed{world.args.seed}_{world.args.model}_dim{wor
 log_path = f'logs/{config}.txt'
 emb_path = f'embs/{config}.pkl'
 
-if os.path.exists(emb_path):
-    print('Exists.')
-    exit(0)
+# if os.path.exists(emb_path):
+#     print('Exists.')
+#     exit(0)
 
 Recmodel = register.MODELS[world.model_name](world.config, dataset)
 Recmodel = Recmodel.to(world.device)
