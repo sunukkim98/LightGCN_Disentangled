@@ -16,4 +16,4 @@ __pycache__/
 .rendered
 embs/
 logs/
-*.sbatch
+code/*.sbatch
