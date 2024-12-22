@@ -25,9 +25,8 @@ model = model.to(world.device)
 users, items, _users, _items = model.computer()
 
 print("Layer-wise embedding sizes:")
-for i in range(len(_users)):  # 각 레이어별 임베딩 확인
-    print(f"Layer {i}: {_users[i].shape}")
-    print(_users[i])
+for i in range(0, 5):  # 각 레이어별 임베딩 확인
+    print(users[i].shape)
 
 print("\nFinal embedding sizes:")
 print("Users:", users.shape)
