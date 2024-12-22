@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from model import LightGCN  # LightGCN 코드가 포함된 파일에서 불러오기
-from dataloader import BasicDataset  # 데이터셋 클래스를 정의한 파일에서 불러오기
+from dataloader import Loader  # 데이터셋 클래스를 정의한 파일에서 불러오기
 
 # 설정 및 데이터셋 생성
 config = {
@@ -13,24 +13,11 @@ config = {
     'pretrain': 0               # 사전학습 사용 여부
 }
 
-# 가상의 사용자 및 아이템 수 설정
-class FakeDataset(BasicDataset):
-    def __init__(self, n_users, m_items):
-        self.n_users = n_users
-        self.m_items = m_items
-        
-    def getSparseGraph(self):
-        # 임의의 희소 그래프 생성 (10x10 예제)
-        indices = torch.LongTensor([[0, 1, 2], [2, 0, 1]])  # 예제 엣지
-        values = torch.FloatTensor([1, 1, 1])  # 엣지 가중치
-        size = torch.Size([10, 10])  # 그래프 크기
-        graph = torch.sparse.FloatTensor(indices, values, size)
-        return graph
-
-dataset = FakeDataset(n_users=5, m_items=5)  # 사용자, 아이템 수 설정
+gowalla_path = "../data/gowalla"
+gowalla_dataset = Loader(path=gowalla_path)
 
 # 모델 객체 생성
-model = LightGCN(config, dataset)
+model = LightGCN(config, gowalla_dataset)
 
 # Embedding 크기 및 값 확인
 users, items, _users, _items = model.computer()
