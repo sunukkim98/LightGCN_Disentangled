@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from model import LightGCN  # LightGCN 코드가 포함된 파일에서 불러오기
 from dataloader import Loader  # 데이터셋 클래스를 정의한 파일에서 불러오기
+import world
 
 # 설정 및 데이터셋 생성
 config = {
@@ -18,6 +19,7 @@ gowalla_dataset = Loader(path=gowalla_path)
 
 # 모델 객체 생성
 model = LightGCN(config, gowalla_dataset)
+model = model.to(world.device)
 
 # Embedding 크기 및 값 확인
 users, items, _users, _items = model.computer()
