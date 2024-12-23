@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-from .dsgconv import DLGConv
+# from .dsgconv import DLGConv
 
 class InitDisenLayer(nn.Module):
     def __init__(self, in_dim, out_dim, num_factors, act_fn):
@@ -19,7 +19,7 @@ class InitDisenLayer(nn.Module):
         self.d_0 = out_dim
         self.K = num_factors
         self.act_fn = act_fn
-        self.setup_layer()
+        self.setup_layers()
 
     def setup_layers(self):
         """
