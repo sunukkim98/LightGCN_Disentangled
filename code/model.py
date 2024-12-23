@@ -12,6 +12,7 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
+from models.encoder import InitDisenLayer
 
 
 class BasicModel(nn.Module):    
@@ -91,6 +92,7 @@ class LightGCN(BasicModel):
         self.config = config
         self.dataset : BasicDataset = dataset
         self.__init_weight() # 가중치 초기화
+        self.setup_layers() # disentangled graph convolutional encoder 설정
 
     def __init_weight(self):
         # 임베딩 초기화
@@ -128,6 +130,12 @@ class LightGCN(BasicModel):
         # 희소 행렬로 저장된 그래프 구조 불러오기
         self.Graph = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
+
+    def setup_layers(self):
+        """
+        Set up layers for Disentangled Graph Convolutional Encoder
+        """
+        self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
 
         # print("save_txt")
     def __dropout_x(self, x, keep_prob):
@@ -174,7 +182,10 @@ class LightGCN(BasicModel):
             else:
                 g_droped = self.Graph        
         else:
-            g_droped = self.Graph    
+            g_droped = self.Graph
+
+        f_0 = self.init_disen(all_emb)
+        print("***f_0 shape: ", f_0.shape)
         
         for layer in range(self.n_layers):
             if self.A_split:
