@@ -24,12 +24,14 @@ model = model.to(world.device)
 # Embedding 크기 및 값 확인
 users, items, _users, _items = model.computer()
 
-for i in range(0, 5):  # 각 레이어별 임베딩 확인
-    print("users shape: ", users[i].shape)
-    print("items shape: ", items[i].shape)
-    print("_users shape: ", _users[i].shape)
-    print("_items shape: ", items[i].shape)
+for i in range(0, 3):  # 각 레이어별 임베딩 확인
+    print("user", i, " shape: ", users[i].shape)
+    print("item", i, " shape: ", items[i].shape)
+    print("_user", i, " shape: ", _users[i].shape)
+    print("_item", i, " shape: ", _items[i].shape)
 
 print("\nFinal embedding sizes:")
 print("Users:", users.shape)
 print("Items:", items.shape)
+print("users from each layer: ", _users.shape)
+print("items from each layer: ", _items.shape)
