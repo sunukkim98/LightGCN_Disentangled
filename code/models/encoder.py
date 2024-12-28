@@ -47,4 +47,3 @@ class InitDisenLayer(nn.Module):
         f_0 = torch.einsum("ij,kjl->ikl", X, self.disen_weights) + self.disen_bias
         f_0 = F.normalize(self.act_fn(f_0))
         return f_0
-    

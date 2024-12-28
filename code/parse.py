@@ -47,4 +47,9 @@ def parse_args():
     parser.add_argument('--save_layer_emb', type=int, default=0)
 
     parser.add_argument('--eval_metric', type=str, default="ndcg")
+    
+    parser.add_argument('--num_factors', type=int, default=8)
+    parser.add_argument('--act_fn', type=str, default="relu")
+    parser.add_argument('--aggr_type', type=str, default="sum")
+
     return parser.parse_args()

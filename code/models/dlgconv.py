@@ -8,12 +8,12 @@ class DLGConv(nn.Module):
     def __init__(self, 
                  in_dim,
                  out_dim,
+                 
                  num_factors,
                  act_fn,
-                 aggr_type,
-                 num_neigh_type=1):
+                 aggr_type): # LightGCN의 경우 무방향 그래프로 이웃 타입의 수는 1
         """
-        Build a DSGConv layer
+        Build a DLGConv layer
         
         Args:
             in_dim: input embedding dimension (d_(l-1))
@@ -27,15 +27,20 @@ class DLGConv(nn.Module):
         """
         super(DLGConv, self).__init__()
         
+        # 입력 파라미터 설정
         self.d_in = in_dim
         self.d_out = out_dim
         self.K = num_factors
-        self.num_neigh_type = num_neigh_type
+        self.num_neigh_type = 1
         self.act_fn = act_fn
         self.aggr_type = aggr_type
+
+        # 레이어 초기화 함수 호출
         self.setup_layers()
         
     def setup_layers(self):
+
+        ######################################v_0구현시 생략######################################
         if self.aggr_type == 'attn':
             self.disen_attn_weights = nn.ModuleList()
             for _ in range(self.num_neigh_type):
@@ -49,34 +54,40 @@ class DLGConv(nn.Module):
                 disen_max_w = nn.Parameter(torch.empty(self.K, self.d_in//self.K, self.d_in//self.K))
                 torch.nn.init.xavier_uniform_(disen_max_w)
                 self.disen_max_weights.append(disen_max_w)
+        #########################################################################################
             
+        # 노드 임베딩 업데이트를 위한 가중치와 편향 초기화
         self.disen_update_weights = nn.Parameter(torch.empty(self.K, (self.num_neigh_type+1)*self.d_in//self.K, self.d_out//self.K))
         self.disen_update_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in//self.K))
         torch.nn.init.xavier_uniform_(self.disen_update_weights)
     
-    def forward(self, f_in, edges_each_type):
+    def forward(self, f_in, edges):
         """
         For each factor, aggregate the neighbors' embedding and update the anode embeddings using aggregated messages and before layer embedding
         
         Args:
             f_in: disentangled node embeddings of before layer
-            edges_each_type: collection of edge lists of each neighbor type
+            edges: collection of edge lists
         Returns:
             f_out: aggregated disentangled node embeddings
         """
         
-        m_agg = []
-        m_agg.append(f_in)
+        m_agg = [] # 집계된 메시지를 저장할 리스트
+        m_agg.append(f_in) # 이전 임베딩 추가
         
-        for neigh_type_idx, edges in enumerate(edges_each_type):
-            m = self.aggregate(f_in, edges, neigh_type_idx=neigh_type_idx)
-            m_agg.append(m)
+        # for neigh_type_idx, edges in enumerate(edges_each_type):
+        #     m = self.aggregate(f_in, edges, neigh_type_idx=neigh_type_idx)
+        #     m_agg.append(m)
+
+        # 무방향 그래프에서는 이웃 타입이 1개이므로, 반복문 생략
+        m = self.aggregate(f_in, edges, neigh_type_idx=0)
+        m_agg.append(m)
 
         # f_out = self.update(m_agg)
         f_out = self.normalize(m_agg)
         return f_out
 
-    def aggregate(self, f_in, edges, neigh_type_idx):
+    def aggregate(self, f_in, edges, neigh_type_idx=0):
         """
         Aggregate messsages for each factor by considering neighbor type and aggregator type
         torch_scatter: https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html

@@ -98,8 +98,8 @@ class LightGCN(BasicModel):
         # 임베딩 초기화
         self.num_users  = self.dataset.n_users
         self.num_items  = self.dataset.m_items
-        self.latent_dim = self.config['latent_dim_rec']
-        self.n_layers = self.config['lightGCN_n_layers']
+        self.latent_dim = self.config['latent_dim_rec'] # 임베딩 차원
+        self.n_layers = self.config['lightGCN_n_layers'] # 레이어 수
 
         self.keep_prob = self.config['keep_prob']
         self.A_split = self.config['A_split']
@@ -168,6 +168,7 @@ class LightGCN(BasicModel):
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
+        print('all_emb shape:', all_emb.shape)
 
         #   torch.split(all_emb , [self.num_users, self.num_items])
 
