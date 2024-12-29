@@ -185,6 +185,7 @@ class LightGCN(BasicModel):
         else:
             g_droped = self.Graph
 
+        print(all_emb.shape)
         f_0 = self.init_disen(all_emb)
         print("***f_0 shape: ", f_0.shape)
         

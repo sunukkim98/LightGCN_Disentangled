@@ -101,7 +101,7 @@ class DLGConv(nn.Module):
             m: aggregated meesages of neighbors
         """
         
-        src, dst = edges[:, 0], edges[:, 1]
+        src, dst = edges[:, 0], edges[:, 1:]
         
         out = f_in.new_zeros(f_in.shape)
         
