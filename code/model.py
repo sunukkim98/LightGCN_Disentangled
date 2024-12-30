@@ -129,6 +129,8 @@ class LightGCN(BasicModel):
 
         # 희소 행렬로 저장된 그래프 구조 불러오기
         self.Graph = self.dataset.getSparseGraph()
+        self.Edges = self.dataset.get_edges()
+        print("self.Edges.shape: ", self.Edges.shape)
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
 
     def setup_layers(self):

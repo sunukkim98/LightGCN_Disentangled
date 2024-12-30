@@ -66,6 +66,10 @@ class BasicDataset(Dataset):
             |R^T, I|
         """
         raise NotImplementedError
+    
+    def get_edges(self):
+        
+        raise NotImplementedError
 
 class LastFM(BasicDataset):
     """
@@ -439,6 +443,16 @@ class Loader(BasicDataset):
                 self.Graph = self.Graph.coalesce().to(world.device)
                 print("don't split the matrix")
         return self.Graph
+    
+    def get_edges(self):
+        # Get the sparse graph using getSparseGraph
+        graph = self.getSparseGraph()
+        
+        # Get the indices (edges) of the graph (pairs of nodes connected)
+        edges = graph.coalesce().indices().t().cpu().numpy()  # Convert to numpy array (user-item pairs)
+        
+        return edges
+
 
     def __build_valid(self):
         """
