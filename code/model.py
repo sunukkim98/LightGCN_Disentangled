@@ -129,9 +129,6 @@ class LightGCN(BasicModel):
 
         # 희소 행렬로 저장된 그래프 구조 불러오기
         self.Graph = self.dataset.getSparseGraph()
-        self.Edges = self.dataset.get_edges()
-        print("self.Edges.shape: ", self.Edges.shape)
-        print("self.Edges[-1]: ", self.Edges[-1])
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
 
     def setup_layers(self):
@@ -189,6 +186,9 @@ class LightGCN(BasicModel):
         print("g_droped.shape: ", g_droped.shape)
         print("g_droped[0]: ", g_droped[0])
         # print("g_droped[1]: ", g_droped[1])
+        edge_list = self.get_edge_list(g_droped)
+        print("edge_list.shape: ", edge_list.shape)
+        print("edge_list: ", edge_list)
         breakpoint()
 
         f_0 = self.init_disen(all_emb)
@@ -215,6 +215,36 @@ class LightGCN(BasicModel):
         # 최종 사용자 및 아이템 임베딩과 레이어별 임베딩 반환
         users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items, _users, _items
+    
+    def get_edge_list(self, sparse_adj):
+        """
+        Convert sparse adjacency matrix to edge list in format [[user1, item1], [user2, item2], ...]
+        
+        Args:
+            sparse_adj (torch.sparse.FloatTensor): Sparse adjacency matrix in format [I, R; R^T, I]
+            
+        Returns:
+            torch.Tensor: A tensor of shape (N, 2) containing [user_id, item_id] pairs
+        """
+        # Get indices from sparse tensor
+        indices = sparse_adj.indices()
+        
+        # Matrix size
+        n = sparse_adj.size(0)
+        n_users = self.dataset.n_users # Number of users
+        
+        # Filter edges between users and items (top-right quadrant)
+        mask = (indices[0] < n_users) & (indices[1] >= n_users)
+        user_item_indices = indices[:, mask]
+        
+        # Convert item indices to start from 0
+        users = user_item_indices[0]  # These are already 0-based
+        items = user_item_indices[1] - n_users  # Subtract offset to make 0-based
+        
+        # Stack users and items to create edge list
+        edge_list = torch.stack([users, items], dim=1)
+        
+        return edge_list
     
     # 예측 및 평가
     def getUsersRating(self, users):
