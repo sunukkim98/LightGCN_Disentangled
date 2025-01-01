@@ -11,7 +11,7 @@ class DLGConv(nn.Module):
                  
                  num_factors,
                  act_fn,
-                 aggr_type): # LightGCN의 경우 무방향 그래프로 이웃 타입의 수는 1
+                 aggr_type):
         """
         Build a DLGConv layer
         
@@ -21,9 +21,6 @@ class DLGConv(nn.Module):
             num_factors: number of factors (K)
             act_fn: torch activation function 
             aggr_type: aggregation type ['sum', 'mean', 'max', 'attn']
-
-            num_neigh_type: number of neighbor's type 
-
         """
         super(DLGConv, self).__init__()
         
@@ -31,16 +28,15 @@ class DLGConv(nn.Module):
         self.d_in = in_dim
         self.d_out = out_dim
         self.K = num_factors
-        self.num_neigh_type = 1
+        self.num_neigh_type = 1 # 무방향 그래프이므로 이웃 타입의 수는 1
         self.act_fn = act_fn
         self.aggr_type = aggr_type
 
         # 레이어 초기화 함수 호출
         self.setup_layers()
-        
-    def setup_layers(self):
 
-        ######################################v_0구현시 생략######################################
+    ######################################v_0구현시 생략######################################
+    def setup_layers(self):
         if self.aggr_type == 'attn':
             self.disen_attn_weights = nn.ModuleList()
             for _ in range(self.num_neigh_type):
@@ -54,12 +50,12 @@ class DLGConv(nn.Module):
                 disen_max_w = nn.Parameter(torch.empty(self.K, self.d_in//self.K, self.d_in//self.K))
                 torch.nn.init.xavier_uniform_(disen_max_w)
                 self.disen_max_weights.append(disen_max_w)
-        #########################################################################################
             
         # 노드 임베딩 업데이트를 위한 가중치와 편향 초기화
         self.disen_update_weights = nn.Parameter(torch.empty(self.K, (self.num_neigh_type+1)*self.d_in//self.K, self.d_out//self.K))
         self.disen_update_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in//self.K))
         torch.nn.init.xavier_uniform_(self.disen_update_weights)
+    #########################################################################################
     
     def forward(self, f_in, edges):
         """
@@ -83,11 +79,11 @@ class DLGConv(nn.Module):
         m = self.aggregate(f_in, edges, neigh_type_idx=0)
         m_agg.append(m)
 
-        # f_out = self.update(m_agg)
-        f_out = self.normalize(m_agg)
+        # f_out = self.update(m_agg) # v_0에서는 update 생략
+        f_out = self.normalize(m_agg) # 정규화 수행
         return f_out
 
-    def aggregate(self, f_in, edges, neigh_type_idx=0):
+    def aggregate(self, f_in, edges):
         """
         Aggregate messsages for each factor by considering neighbor type and aggregator type
         torch_scatter: https://pytorch-scatter.readthedocs.io/en/latest/functions/scatter.html
@@ -95,7 +91,6 @@ class DLGConv(nn.Module):
         Args:
             f_in: disentangled node embeddings of before layer
             edges: edge list of neighbors
-            neigh_type_idx: index of neighbor type
             
         Returns:
             m: aggregated meesages of neighbors
@@ -108,6 +103,7 @@ class DLGConv(nn.Module):
         if self.aggr_type == 'sum':
             m = scatter_add(f_in[dst], src, dim=0, out=out)
             
+        ######################################v_0구현시 생략######################################
         elif self.aggr_type == 'attn':
             f_edge = torch.concat([f_in[src], f_in[dst]], dim=2)
             score = F.leaky_relu(torch.einsum("ijk,jk->ij", f_edge, self.disen_attn_weights[neigh_type_idx])).unsqueeze(2) 
@@ -120,6 +116,7 @@ class DLGConv(nn.Module):
         elif self.aggr_type == 'max':
             f_in_max = torch.einsum("ijk,jkl->ijl", f_in, self.disen_max_weights[neigh_type_idx])
             m = scatter_max(f_in_max[dst], src, dim=0, out=out)[0]
+        #########################################################################################
         
         return m
     
@@ -133,5 +130,5 @@ class DLGConv(nn.Module):
         Returns:
             f_out: normalized node embeddings
         """
-        f_out = F.normalize(torch.cat(m_agg, dim=2))
+        f_out = F.normalize(torch.concat(m_agg, dim=2))
         return f_out

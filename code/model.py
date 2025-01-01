@@ -13,6 +13,7 @@ from dataloader import BasicDataset
 from torch import nn
 import numpy as np
 from models.encoder import InitDisenLayer
+from models.encoder import Encoder
 
 
 class BasicModel(nn.Module):    
@@ -191,8 +192,20 @@ class LightGCN(BasicModel):
         print("edge_list: ", edge_list)
         breakpoint()
 
+        self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
+        self.conv_layers = nn.ModuleList()
+        for _ in range(self.n_layers):
+            self.conv_layers.append(Encoder(self.latent_dim, self.latent_dim, 8, 'sum', torch.relu))
+
         f_0 = self.init_disen(all_emb)
         print("***f_0 shape: ", f_0.shape)
+        f_l = f_0
+        for ldn_conv in self.conv_layers:
+            f_l = ldn_conv(f_l, edge_list)
+        
+        Z = f_l
+        print("***Z shape: ", Z.shape)
+
         
         for layer in range(self.n_layers):
             if self.A_split:
