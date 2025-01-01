@@ -131,6 +131,7 @@ class LightGCN(BasicModel):
         self.Graph = self.dataset.getSparseGraph()
         self.Edges = self.dataset.get_edges()
         print("self.Edges.shape: ", self.Edges.shape)
+        print("self.Edges[-1]: ", self.Edges[-1])
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
 
     def setup_layers(self):
@@ -170,7 +171,6 @@ class LightGCN(BasicModel):
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
-        print('all_emb shape:', all_emb.shape)
 
         #   torch.split(all_emb , [self.num_users, self.num_items])
 
@@ -186,10 +186,11 @@ class LightGCN(BasicModel):
                 g_droped = self.Graph        
         else:
             g_droped = self.Graph
+        print("g_droped.shape: ", g_droped.shape)
+        print("g_droped[0]: ", g_droped[0])
+        # print("g_droped[1]: ", g_droped[1])
+        breakpoint()
 
-        # print(all_emb.shape)
-        # print(all_emb[0])
-        print("embs[0] : ", embs[0])
         f_0 = self.init_disen(all_emb)
         print("***f_0 shape: ", f_0.shape)
         
