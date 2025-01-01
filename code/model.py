@@ -13,7 +13,8 @@ from dataloader import BasicDataset
 from torch import nn
 import numpy as np
 from models.encoder import InitDisenLayer
-from models.encoder import Encoder
+# from models.encoder import Encoder
+from models.dlgconv import DLGConv
 
 
 class BasicModel(nn.Module):    
@@ -137,6 +138,9 @@ class LightGCN(BasicModel):
         Set up layers for Disentangled Graph Convolutional Encoder
         """
         self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
+        self.conv_layers = nn.ModuleList()
+        for _ in range(self.n_layers):
+            self.conv_layers.append(DLGConv(self.latent_dim, self.latent_dim, 8, torch.relu, 'sum'))
 
         # print("save_txt")
     def __dropout_x(self, x, keep_prob):
@@ -184,27 +188,29 @@ class LightGCN(BasicModel):
                 g_droped = self.Graph        
         else:
             g_droped = self.Graph
-        print("g_droped.shape: ", g_droped.shape)
-        print("g_droped[0]: ", g_droped[0])
-        # print("g_droped[1]: ", g_droped[1])
-        edge_list = self.get_edge_list(g_droped)
-        print("edge_list.shape: ", edge_list.shape)
-        print("edge_list: ", edge_list[-1])
-        breakpoint()
 
-        self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
-        self.conv_layers = nn.ModuleList()
-        for _ in range(self.n_layers):
-            self.conv_layers.append(Encoder(self.latent_dim, self.latent_dim, 8, 'sum', torch.relu))
+        edge_list = self.get_edge_list(g_droped)
 
         f_0 = self.init_disen(all_emb)
         print("***f_0 shape: ", f_0.shape)
+        f_emb = [f_0]
         f_l = f_0
         for ldn_conv in self.conv_layers:
             f_l = ldn_conv(f_l, edge_list)
+            f_emb.append(f_l)
+            print("len(f_emb): ", len(f_emb))
+            print("len(f_emb[0]): ", len(f_emb[0]))
         
-        Z = f_l
+        f_emb = torch.stack(f_emb, dim=1)
+        print("f_emb.shape: ", f_emb.shape)
+        f_out = torch.mean(f_emb, dim=1)
+        print("f_out.shape: ", f_out.shape)
+
+        Z = f_out
         print("***Z shape: ", Z.shape)
+        # breakpoint()
+
+        
 
         
         for layer in range(self.n_layers):

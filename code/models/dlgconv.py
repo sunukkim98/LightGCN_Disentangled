@@ -68,19 +68,21 @@ class DLGConv(nn.Module):
             f_out: aggregated disentangled node embeddings
         """
         
-        m_agg = [] # 집계된 메시지를 저장할 리스트
-        m_agg.append(f_in) # 이전 임베딩 추가
+        # m_agg = [] # 집계된 메시지를 저장할 리스트
+        # m_agg.append(f_in) # 이전 임베딩 추가
         
         # for neigh_type_idx, edges in enumerate(edges_each_type):
         #     m = self.aggregate(f_in, edges, neigh_type_idx=neigh_type_idx)
         #     m_agg.append(m)
 
         # 무방향 그래프에서는 이웃 타입이 1개이므로, 반복문 생략
-        m = self.aggregate(f_in, edges, neigh_type_idx=0)
-        m_agg.append(m)
+        m = self.aggregate(f_in, edges)
+        # m_agg.append(m)
 
         # f_out = self.update(m_agg) # v_0에서는 update 생략
-        f_out = self.normalize(m_agg) # 정규화 수행
+        # f_out = self.normalize(m_agg) # 정규화 수행
+        f_out = F.normalize(m)
+        print("dlgconv f_out.shape: ", f_out.shape)
         return f_out
 
     def aggregate(self, f_in, edges):
@@ -95,8 +97,7 @@ class DLGConv(nn.Module):
         Returns:
             m: aggregated meesages of neighbors
         """
-        
-        src, dst = edges[:, 0], edges[:, 1:]
+        src, dst = edges[:, 0], edges[:, 1]
         
         out = f_in.new_zeros(f_in.shape)
         
@@ -119,16 +120,3 @@ class DLGConv(nn.Module):
         #########################################################################################
         
         return m
-    
-    def normalize(self, m_agg):
-        """
-        Normalize the aggregated messages
-
-        Args:
-            m_agg: list of aggregated meesages and before layer embedding
-
-        Returns:
-            f_out: normalized node embeddings
-        """
-        f_out = F.normalize(torch.concat(m_agg, dim=2))
-        return f_out
