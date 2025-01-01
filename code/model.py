@@ -189,7 +189,7 @@ class LightGCN(BasicModel):
         # print("g_droped[1]: ", g_droped[1])
         edge_list = self.get_edge_list(g_droped)
         print("edge_list.shape: ", edge_list.shape)
-        print("edge_list: ", edge_list)
+        print("edge_list: ", edge_list[-1])
         breakpoint()
 
         self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
