@@ -15,6 +15,7 @@ import numpy as np
 from models.encoder import InitDisenLayer
 # from models.encoder import Encoder
 from models.dlgconv import DLGConv
+from models.decoder import PariwiseCorrelationDecoder
 
 
 class BasicModel(nn.Module):    
@@ -208,9 +209,14 @@ class LightGCN(BasicModel):
 
         Z = f_out
         print("***Z shape: ", Z.shape)
-        # breakpoint()
 
-        
+        decoder = PariwiseCorrelationDecoder(
+            out_dim=self.latent_dim,
+            num_factors=8
+        )
+        score = decoder.forward(Z, edge_list)
+        print("score: ", score)
+        breakpoint()
 
         
         for layer in range(self.n_layers):
