@@ -48,64 +48,69 @@ class InitDisenLayer(nn.Module):
         f_0 = F.normalize(self.act_fn(f_0))
         return f_0
     
-# class Encoder(nn.Module):
-#     def __init__(
-#         self,
-#         in_dim,
-#         out_dim,
-#         num_factors,
-#         num_layers,
-#         aggr_type,
-#         act_fn=torch.tanh
-#     ):
-#         """
-#         Build a Encoder
+class Encoder(nn.Module):
+    def __init__(
+        self,
+        in_dim,
+        out_dim,
+        num_factors,
+        num_layers,
+        aggr_type,
+        act_fn=torch.relu
+    ):
+        """
+        Build a Encoder
 
-#         Args:
-#             in_dim: input feature dimension (d_in)
-#             out_dim: output embedding dimension (d_out)
-#             num_factors: number of factors (K)
-#             num_layers: number of layers (L)
-#             aggr_type: aggregation type ['sum', 'mean', 'max', 'attn']
-#             act_fn: torch activation function
-#         """
+        Args:
+            in_dim: input feature dimension (d_in)
+            out_dim: output embedding dimension (d_out)
+            num_factors: number of factors (K)
+            num_layers: number of layers (L)
+            aggr_type: aggregation type ['sum', 'mean', 'max', 'attn']
+            act_fn: torch activation function
+        """
 
-#         super(Encoder, self).__init__()
-#         self.d_in = in_dim
-#         self.d_out = out_dim
-#         self.K = num_factors
-#         self.L = num_layers
-#         self.act_fn = act_fn
-#         self.aggr_type = aggr_type
+        super(Encoder, self).__init__()
+        self.d_in = in_dim
+        self.d_out = out_dim
+        self.K = num_factors
+        self.L = num_layers
+        self.act_fn = act_fn
+        self.aggr_type = aggr_type
 
-#         self.setup_layers()
-
-
-#     def setup_layers(self):
-#         """
-#         Set up layers for DINES Encoder
-#         """
-#         self.init_disen = InitDisenLayer(self.d_in, self.d_out, self.K, self.act_fn)
-#         self.conv_layers = nn.ModuleList()
-#         for _ in range(self.L):
-#             self.conv_layers.append(DLGConv(self.d_out, self.d_out, self.K, self.act_fn, self.aggr_type))
+        self.setup_layers()
 
 
-#     def forward(self, X, edges):
-#         """
-#         Generate disentangled node representation
-#         Args:
-#             X: input node features
-#             edges: collection of edge lists
+    def setup_layers(self):
+        """
+        Set up layers for Encoder
+        """
+        self.init_disen = InitDisenLayer(self.d_in, self.d_out, self.K, self.act_fn)
+        self.conv_layers = nn.ModuleList()
+        for _ in range(self.L):
+            self.conv_layers.append(DLGConv(self.d_out, self.d_out, self.K, self.act_fn, self.aggr_type))
 
-#         Returns:
-#             Z: disentangled node embeddings
-#         """
-#         f_0 = self.init_disen(X)
 
-#         f_l = f_0
-#         for ldn_conv in self.conv_layers:
-#             f_l = ldn_conv(f_l, edges)
+    def forward(self, X, edges):
+        """
+        Generate disentangled node representation
+        Args:
+            X: input node features
+            edges: collection of edge lists
 
-#         Z = f_l 
-#         return Z # (N, K, d_out/K)
+        Returns:
+            Z: disentangled node embeddings
+        """
+        f_0 = self.init_disen(X)
+
+        f_emb = [f_0]
+        f_l = f_0
+        for ldn_conv in self.conv_layers:
+            f_l = ldn_conv(f_l, edges)
+            f_emb.append(f_l)
+        
+        f_emb = torch.stack(f_emb, dim=1)
+        f_out = torch.mean(f_emb, dim=1)
+
+        Z = f_out
+        return Z # (N, K, d_out/K)

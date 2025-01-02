@@ -13,8 +13,8 @@ from dataloader import BasicDataset
 from torch import nn
 import numpy as np
 from models.encoder import InitDisenLayer
-# from models.encoder import Encoder
-from models.dlgconv import DLGConv
+from models.encoder import Encoder
+# from models.dlgconv import DLGConv
 from models.decoder import PariwiseCorrelationDecoder
 
 
@@ -87,160 +87,301 @@ class PureMF(BasicModel):
         scores = torch.sum(users_emb*items_emb, dim=1)
         return self.f(scores)
 
-class LightGCN(BasicModel):
+# class LightGCN(BasicModel):
+#     def __init__(self, 
+#                  config:dict, # 설정 정보(임베딩 차원, 레이어 수, 드롭아웃 확률 등)
+#                  dataset:BasicDataset): # 데이터셋 정보
+#         super(LightGCN, self).__init__()
+#         self.config = config
+#         self.dataset : BasicDataset = dataset
+#         self.__init_weight() # 가중치 초기화
+
+#     def __init_weight(self):
+#         # 임베딩 초기화
+#         self.num_users  = self.dataset.n_users
+#         self.num_items  = self.dataset.m_items
+#         self.latent_dim = self.config['latent_dim_rec'] # 임베딩 차원
+#         self.n_layers = self.config['lightGCN_n_layers'] # 레이어 수
+
+#         self.keep_prob = self.config['keep_prob']
+#         self.A_split = self.config['A_split']
+
+#         self.encoder = Encoder(
+#             in_dim=self.latent_dim,
+#             out_dim=self.latent_dim,
+#             num_factors=config['num_factors'],
+#             num_layers=self.n_layers,
+#             aggr_type=config['aggr_type'],
+#             act_fn=torch.relu
+#         )
+#         self.decoder = PariwiseCorrelationDecoder(
+#             num_factors=config['num_factors'],
+#             out_dim=self.latent_dim,
+#             num_users=self.num_users,
+#             num_items=self.num_items
+#         )
+
+#         # 사용자와 아이템에 대한 임베딩 행렬 생성
+#         self.embedding_user = torch.nn.Embedding(
+#             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+#         self.embedding_item = torch.nn.Embedding(
+#             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
+        
+
+#         if self.config['pretrain'] == 0:
+# #             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
+# #             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
+# #             print('use xavier initilizer')
+            
+#             # 임베딩 초기값 설정
+#             # random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
+#             nn.init.normal_(self.embedding_user.weight, std=0.1) # 평균 0, 표준편차 0.1인 정규분포로 초기화
+#             nn.init.normal_(self.embedding_item.weight, std=0.1)
+#             world.cprint('use NORMAL distribution initilizer')
+#         else:
+#             self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
+#             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
+#             print('use pretarined data')
+#         self.f = nn.Sigmoid()
+
+#         # 희소 행렬로 저장된 그래프 구조 불러오기
+#         self.Graph = self.dataset.getSparseGraph()
+#         print(f"lgn is already to go(dropout:{self.config['dropout']})")
+
+#         # print("save_txt")
+#     def __dropout_x(self, x, keep_prob):
+#         size = x.size()
+#         index = x.indices().t()
+#         values = x.values()
+#         random_index = torch.rand(len(values)) + keep_prob
+#         random_index = random_index.int().bool()
+#         index = index[random_index]
+#         values = values[random_index]/keep_prob
+#         g = torch.sparse.FloatTensor(index.t(), values, size)
+#         return g
+    
+#     def __dropout(self, keep_prob):
+#         if self.A_split:
+#             graph = []
+#             for g in self.Graph:
+#                 graph.append(self.__dropout_x(g, keep_prob))
+#         else:
+#             graph = self.__dropout_x(self.Graph, keep_prob)
+#         return graph
+    
+#     # neighbor aggregation 수행하는 함수
+#     def computer(self):
+#         """
+#         propagate methods for lightGCN
+#         """       
+
+#         # 초기 임베딩 결합
+#         users_emb = self.embedding_user.weight
+#         items_emb = self.embedding_item.weight
+#         all_emb = torch.cat([users_emb, items_emb])
+
+#         #   torch.split(all_emb , [self.num_users, self.num_items])
+
+#         # 초기 임베딩을 리스트에 추가하여 레이어별 결과를 저장
+#         embs = [all_emb]
+
+#         # 드롭아웃 여부에 따라 그래프를 수정
+#         if self.config['dropout']:
+#             if self.training:
+#                 print("droping")
+#                 g_droped = self.__dropout(self.keep_prob)
+#             else:
+#                 g_droped = self.Graph        
+#         else:
+#             g_droped = self.Graph
+
+#         edge_list = self.get_edge_list(g_droped)
+
+#         Z = self.encoder.forward(all_emb, edge_list)
+#         print("***Z shape: ", Z.shape)
+#         # 3D 형태 유지하면서 split
+#         Z_users, Z_items = torch.split(Z, [self.num_users, self.num_items], dim=0)
+#         print("Z_users.shape: ", Z_users.shape, "Z_items.shape: ", Z_items.shape)
+
+#         # score = self.decoder.forward(Z_users, edge_list)
+#         # print("score: ", score)
+        
+#         for layer in range(self.n_layers):
+#             if self.A_split:
+#                 temp_emb = []
+#                 for f in range(len(g_droped)):
+#                     temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
+#                 side_emb = torch.cat(temp_emb, dim=0)
+#                 all_emb = side_emb
+#             else:
+#                 # 희소 행렬 곱셈으로 노드 임베딩을 업데이트
+#                 all_emb = torch.sparse.mm(g_droped, all_emb)
+#             embs.append(all_emb)
+#         embs = torch.stack(embs, dim=1)
+#         #print(embs.size())
+
+#         # 각 레이어의 임베딩을 평균 풀링으로 결합
+#         light_out = torch.mean(embs, dim=1)
+#         print("light_out.shape: ", light_out.shape)
+#         _users, _items = torch.split(embs, [self.num_users, self.num_items])
+
+#         # 최종 사용자 및 아이템 임베딩과 레이어별 임베딩 반환
+#         users, items = torch.split(light_out, [self.num_users, self.num_items])
+#         return users, items, _users, _items, Z_users, Z_items
+    
+#     def get_edge_list(self, sparse_adj):
+#         """
+#         Convert sparse adjacency matrix to edge list in format [[user1, item1], [user2, item2], ...]
+        
+#         Args:
+#             sparse_adj (torch.sparse.FloatTensor): Sparse adjacency matrix in format [I, R; R^T, I]
+            
+#         Returns:
+#             torch.Tensor: A tensor of shape (N, 2) containing [user_id, item_id] pairs
+#         """
+#         # Get indices from sparse tensor
+#         indices = sparse_adj.indices()
+        
+#         # Matrix size
+#         n = sparse_adj.size(0)
+#         n_users = self.dataset.n_users # Number of users
+        
+#         # Filter edges between users and items (top-right quadrant)
+#         mask = (indices[0] < n_users) & (indices[1] >= n_users)
+#         user_item_indices = indices[:, mask]
+        
+#         # Convert item indices to start from 0
+#         users = user_item_indices[0]  # These are already 0-based
+#         items = user_item_indices[1] - n_users  # Subtract offset to make 0-based
+        
+#         # Stack users and items to create edge list
+#         edge_list = torch.stack([users, items], dim=1)
+        
+#         return edge_list
+    
+#     # 예측 및 평가
+#     def getUsersRating(self, users):
+#         # if all_users is None or all_items is None:
+#         #     all_users, all_items, _, _ = self.computer()
+
+#         all_users, all_items, _, _, _, _ = self.computer()
+#         users_emb = all_users[users.long()]
+#         items_emb = all_items
+
+#         # 사용자와 아이템 임베딩의 내적 계산 후 시그모이드 함수 적용
+#         rating = self.f(torch.matmul(users_emb, items_emb.t()))
+#         print("rating.shape: ", rating.shape)
+#         # breakpoint()
+
+#         # 예측된 평가 점수 반환
+#         return rating
+
+#     def getScore(self, users):
+#         _, _, _, _, all_users, all_items = self.computer()
+
+#         user_emb = all_users[users.long()]
+#         item_emb = all_items
+
+#         score = self.decoder.forward(user_emb, edge_list)
+#         print("score.shape: ", score.shape)
+
+#         return score
+    
+#     # 훈련 중 임베딩을 추출하는 함수
+#     def getEmbedding(self, users, pos_items, neg_items):
+#         all_users, all_items, _, _, _, _ = self.computer()
+
+#         users_emb = all_users[users]
+#         pos_emb = all_items[pos_items]
+#         neg_emb = all_items[neg_items]
+
+#         users_emb_ego = self.embedding_user(users)
+#         pos_emb_ego = self.embedding_item(pos_items)
+#         neg_emb_ego = self.embedding_item(neg_items)
+#         return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
+    
+#     # 손실 함수 (BPR)
+#     def bpr_loss(self, users, pos, neg):
+#         """
+#         Calculate BPR loss.
+#         """
+#         X = torch.cat([self.embedding_user.weight, self.embedding_item.weight], dim=0)
+#         Z = self.encoder(X, self.Graph)
+#         loss, reg_loss = self.decoder.bpr_loss(Z, users, pos_items, neg_items)
+#         return loss, reg_loss
+       
+#     # 예측 함수
+#     def forward(self, users, items):
+#         # # compute embedding
+#         # all_users, all_items, _, _, _, _ = self.computer()
+#         # # print('forward')
+#         # #all_users, all_items = self.computer()
+#         # users_emb = all_users[users]
+#         # items_emb = all_items[items]
+#         # inner_pro = torch.mul(users_emb, items_emb)
+#         # gamma     = torch.sum(inner_pro, dim=1)
+#         # return gamma
+#         """
+#         Forward pass to compute scores.
+#         """
+#         X = torch.cat([self.embedding_user.weight, self.embedding_item.weight], dim=0)
+#         Z = self.encoder(X, self.Graph)
+#         scores = self.decoder(Z, users, items)
+#         return scores
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class LightGCN(nn.Module):
     def __init__(self, 
-                 config:dict, # 설정 정보(임베딩 차원, 레이어 수, 드롭아웃 확률 등)
-                 dataset:BasicDataset): # 데이터셋 정보
+                 config: dict, 
+                 dataset):
+        """
+        LightGCN with Disentangled Embeddings
+
+        Args:
+            config: configuration dictionary
+            dataset: dataset object
+        """
         super(LightGCN, self).__init__()
         self.config = config
-        self.dataset : BasicDataset = dataset
-        self.__init_weight() # 가중치 초기화
-        self.setup_layers() # disentangled graph convolutional encoder 설정
+        self.dataset = dataset
 
-    def __init_weight(self):
-        # 임베딩 초기화
-        self.num_users  = self.dataset.n_users
-        self.num_items  = self.dataset.m_items
-        self.latent_dim = self.config['latent_dim_rec'] # 임베딩 차원
-        self.n_layers = self.config['lightGCN_n_layers'] # 레이어 수
+        self.num_users = dataset.n_users
+        self.num_items = dataset.m_items
+        self.latent_dim = config['latent_dim_rec']
+        self.n_layers = config['lightGCN_n_layers']
+        self.keep_prob = config['keep_prob']
+        self.A_split = config['A_split']
 
-        self.keep_prob = self.config['keep_prob']
-        self.A_split = self.config['A_split']
-
-        # 사용자와 아이템에 대한 임베딩 행렬 생성
-        self.embedding_user = torch.nn.Embedding(
-            num_embeddings=self.num_users, embedding_dim=self.latent_dim)
-        self.embedding_item = torch.nn.Embedding(
-            num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        
-
-        if self.config['pretrain'] == 0:
-#             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
-#             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
-#             print('use xavier initilizer')
-            
-            # 임베딩 초기값 설정
-            # random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
-            nn.init.normal_(self.embedding_user.weight, std=0.1) # 평균 0, 표준편차 0.1인 정규분포로 초기화
-            nn.init.normal_(self.embedding_item.weight, std=0.1)
-            world.cprint('use NORMAL distribution initilizer')
-        else:
-            self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
-            self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
-            print('use pretarined data')
-        self.f = nn.Sigmoid()
-
-        # 희소 행렬로 저장된 그래프 구조 불러오기
-        self.Graph = self.dataset.getSparseGraph()
-        print(f"lgn is already to go(dropout:{self.config['dropout']})")
-
-    def setup_layers(self):
-        """
-        Set up layers for Disentangled Graph Convolutional Encoder
-        """
-        self.init_disen = InitDisenLayer(self.latent_dim, self.latent_dim, 8, torch.relu)
-        self.conv_layers = nn.ModuleList()
-        for _ in range(self.n_layers):
-            self.conv_layers.append(DLGConv(self.latent_dim, self.latent_dim, 8, torch.relu, 'sum'))
-
-        # print("save_txt")
-    def __dropout_x(self, x, keep_prob):
-        size = x.size()
-        index = x.indices().t()
-        values = x.values()
-        random_index = torch.rand(len(values)) + keep_prob
-        random_index = random_index.int().bool()
-        index = index[random_index]
-        values = values[random_index]/keep_prob
-        g = torch.sparse.FloatTensor(index.t(), values, size)
-        return g
-    
-    def __dropout(self, keep_prob):
-        if self.A_split:
-            graph = []
-            for g in self.Graph:
-                graph.append(self.__dropout_x(g, keep_prob))
-        else:
-            graph = self.__dropout_x(self.Graph, keep_prob)
-        return graph
-    
-    # neighbor aggregation 수행하는 함수
-    def computer(self):
-        """
-        propagate methods for lightGCN
-        """       
-
-        # 초기 임베딩 결합
-        users_emb = self.embedding_user.weight
-        items_emb = self.embedding_item.weight
-        all_emb = torch.cat([users_emb, items_emb])
-
-        #   torch.split(all_emb , [self.num_users, self.num_items])
-
-        # 초기 임베딩을 리스트에 추가하여 레이어별 결과를 저장
-        embs = [all_emb]
-
-        # 드롭아웃 여부에 따라 그래프를 수정
-        if self.config['dropout']:
-            if self.training:
-                print("droping")
-                g_droped = self.__dropout(self.keep_prob)
-            else:
-                g_droped = self.Graph        
-        else:
-            g_droped = self.Graph
-
-        edge_list = self.get_edge_list(g_droped)
-
-        f_0 = self.init_disen(all_emb)
-        print("***f_0 shape: ", f_0.shape)
-        f_emb = [f_0]
-        f_l = f_0
-        for ldn_conv in self.conv_layers:
-            f_l = ldn_conv(f_l, edge_list)
-            f_emb.append(f_l)
-            print("len(f_emb): ", len(f_emb))
-            print("len(f_emb[0]): ", len(f_emb[0]))
-        
-        f_emb = torch.stack(f_emb, dim=1)
-        print("f_emb.shape: ", f_emb.shape)
-        f_out = torch.mean(f_emb, dim=1)
-        print("f_out.shape: ", f_out.shape)
-
-        Z = f_out
-        print("***Z shape: ", Z.shape)
-
-        decoder = PariwiseCorrelationDecoder(
+        self.encoder = Encoder(
+            in_dim=self.latent_dim,
             out_dim=self.latent_dim,
-            num_factors=8
+            num_factors=config['num_factors'],
+            num_layers=self.n_layers,
+            aggr_type=config['aggr_type'],
+            act_fn=torch.relu
         )
-        score = decoder.forward(Z, edge_list)
-        print("score: ", score)
-        breakpoint()
+        self.decoder = PariwiseCorrelationDecoder(
+            num_factors=config['num_factors'],
+            out_dim=self.latent_dim,
+            num_users=self.num_users,
+            num_items=self.num_items
+        )
+        self.embedding_user = nn.Embedding(self.num_users, self.latent_dim)
+        self.embedding_item = nn.Embedding(self.num_items, self.latent_dim)
 
-        
-        for layer in range(self.n_layers):
-            if self.A_split:
-                temp_emb = []
-                for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
-                side_emb = torch.cat(temp_emb, dim=0)
-                all_emb = side_emb
-            else:
-                # 희소 행렬 곱셈으로 노드 임베딩을 업데이트
-                all_emb = torch.sparse.mm(g_droped, all_emb)
-            embs.append(all_emb)
-        embs = torch.stack(embs, dim=1)
-        #print(embs.size())
+        if config['pretrain'] == 0:
+            nn.init.normal_(self.embedding_user.weight, std=0.1)
+            nn.init.normal_(self.embedding_item.weight, std=0.1)
+        else:
+            self.embedding_user.weight.data.copy_(torch.from_numpy(config['user_emb']))
+            self.embedding_item.weight.data.copy_(torch.from_numpy(config['item_emb']))
 
-        # 각 레이어의 임베딩을 평균 풀링으로 결합
-        light_out = torch.mean(embs, dim=1)
-        _users, _items = torch.split(embs, [self.num_users, self.num_items])
+        self.Graph = dataset.getSparseGraph()
+        self.edge_list = self.get_edge_list(self.Graph)
 
-        # 최종 사용자 및 아이템 임베딩과 레이어별 임베딩 반환
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
-        return users, items, _users, _items
-    
     def get_edge_list(self, sparse_adj):
         """
         Convert sparse adjacency matrix to edge list in format [[user1, item1], [user2, item2], ...]
@@ -270,63 +411,53 @@ class LightGCN(BasicModel):
         edge_list = torch.stack([users, items], dim=1)
         
         return edge_list
-    
-    # 예측 및 평가
+
+    def forward(self, users, items):
+        """
+        Forward pass to compute scores.
+        """
+        X = torch.cat([self.embedding_user.weight, self.embedding_item.weight], dim=0)
+        Z = self.encoder(X, self.edge_list)
+        scores = self.decoder(Z, users, items)
+        return scores
+
     def getUsersRating(self, users):
-        # if all_users is None or all_items is None:
-        #     all_users, all_items, _, _ = self.computer()
-
-        all_users, all_items, _, _ = self.computer()
-        users_emb = all_users[users.long()]
+        """
+        Compute user-item scores for recommendation.
+        """
+        Z = self.get_embedding()
+        all_users, all_items = torch.split(Z, [self.num_users, self.num_items], dim=0)
+        users_emb = all_users[users]
         items_emb = all_items
+        scores = self.decoder.calculate_score(users_emb, items_emb)
+        return scores
 
-        # 사용자와 아이템 임베딩의 내적 계산 후 시그모이드 함수 적용
-        rating = self.f(torch.matmul(users_emb, items_emb.t()))
-
-        # 예측된 평가 점수 반환
-        return rating
-    
-    # 훈련 중 임베딩을 추출하는 함수
     def getEmbedding(self, users, pos_items, neg_items):
-        all_users, all_items, _, _ = self.computer()
-
+        """
+        Extract embeddings for users and items.
+        """
+        Z = self.get_embedding()
+        all_users, all_items = torch.split(Z, [self.num_users, self.num_items], dim=0)
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
-
         users_emb_ego = self.embedding_user(users)
         pos_emb_ego = self.embedding_item(pos_items)
         neg_emb_ego = self.embedding_item(neg_items)
         return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
-    
-    # 손실 함수 (BPR)
-    def bpr_loss(self, users, pos, neg):
-        # 사용자의 긍정적, 부정적 샘플의 임베딩 추출
-        (users_emb, pos_emb, neg_emb, 
-        userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
 
-        # Normailization(L2 norm)
-        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-                         posEmb0.norm(2).pow(2)  +
-                         negEmb0.norm(2).pow(2))/float(len(users))
-        
-        pos_scores = torch.mul(users_emb, pos_emb)
-        pos_scores = torch.sum(pos_scores, dim=1)
-        neg_scores = torch.mul(users_emb, neg_emb)
-        neg_scores = torch.sum(neg_scores, dim=1)
-        
-        loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
-        
+    def bpr_loss(self, users, pos, neg):
+        """
+        Calculate BPR loss for training.
+        """
+        Z = self.get_embedding()
+        loss, reg_loss = self.decoder.bpr_loss(Z, users, pos, neg)
         return loss, reg_loss
-       
-    # 예측 함수
-    def forward(self, users, items):
-        # compute embedding
-        all_users, all_items, _, _ = self.computer()
-        # print('forward')
-        #all_users, all_items = self.computer()
-        users_emb = all_users[users]
-        items_emb = all_items[items]
-        inner_pro = torch.mul(users_emb, items_emb)
-        gamma     = torch.sum(inner_pro, dim=1)
-        return gamma
+
+    def get_embedding(self):
+        """
+        Compute embeddings for evaluation.
+        """
+        X = torch.cat([self.embedding_user.weight, self.embedding_item.weight], dim=0)
+        Z = self.encoder.forward(X, self.edge_list)
+        return Z

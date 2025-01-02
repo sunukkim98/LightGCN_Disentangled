@@ -83,7 +83,7 @@ try:
                 patience = 0
                 
                 Recmodel.eval()
-                all_users, all_items, _all_users, _all_items = Recmodel.computer()
+                all_users, all_items, _all_users, _all_items, _, _ = Recmodel.computer()
                 all_users, all_items = all_users.detach().cpu(), all_items.detach().cpu()
                 _all_users, _all_items = _all_users.detach().cpu(), _all_items.detach().cpu()
 
