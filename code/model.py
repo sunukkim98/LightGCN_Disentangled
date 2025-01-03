@@ -176,7 +176,7 @@ class LightGCN(BasicModel):
         #print(embs.size())
         light_out = torch.mean(embs, dim=1)
 
-        _users, _items = torch.split(torch.stack(embs, dim=1), [self.num_users, self.num_items])
+        _users, _items = torch.split(embs, [self.num_users, self.num_items])
         users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items, _users, _items
     
