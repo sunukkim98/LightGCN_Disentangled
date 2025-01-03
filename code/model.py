@@ -175,8 +175,10 @@ class LightGCN(BasicModel):
         embs = torch.stack(embs, dim=1)
         #print(embs.size())
         light_out = torch.mean(embs, dim=1)
+
+        _users, _items = torch.split(torch.stack(embs, dim=1), [self.num_users, self.num_items])
         users, items = torch.split(light_out, [self.num_users, self.num_items])
-        return users, items
+        return users, items, _users, _items
     
     def getUsersRating(self, users):
         all_users, all_items = self.computer()
