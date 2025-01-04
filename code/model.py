@@ -207,11 +207,12 @@ class LightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        num_users = users_emb.shape[0]
-        num_items = items_emb.shape[0]
-        users_emb_flat = users_emb.reshape(num_users, -1)
-        items_emb_flat = items_emb.reshape(num_items, -1)
-        rating = self.f(torch.matmul(users_emb_flat, items_emb_flat.t()))
+        # Reshape for batch processing
+        users_emb = users_emb.unsqueeze(1)  # Add batch dimension
+        items_emb = items_emb.unsqueeze(0).expand(users_emb.size(0), -1, -1)  # Expand to match batch size
+        
+        # Use decoder's forward method for consistency
+        rating = self.decoder.forward(users_emb, items_emb)
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
