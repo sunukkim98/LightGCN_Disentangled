@@ -211,7 +211,7 @@ class LightGCN(BasicModel):
         num_items = items_emb.shape[0]
         users_emb_flat = users_emb.reshape(num_users, -1)
         items_emb_flat = items_emb.reshape(num_items, -1)
-        rating = torch.matmul(users_emb_flat, items_emb_flat.t())
+        rating = self.f(torch.matmul(users_emb_flat, items_emb_flat.t()))
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
