@@ -237,5 +237,5 @@ class LightGCN(BasicModel):
         #all_users, all_items = self.computer()
         users_emb = all_users[users]
         items_emb = all_items[items]
-        gamma = self.decoder.calculate_score(users_emb, items_emb)
+        gamma = self.decoder.forward(users_emb, items_emb)
         return gamma
