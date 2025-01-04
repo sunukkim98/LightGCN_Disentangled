@@ -207,6 +207,8 @@ class LightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
+        print("users_emb.shape, items_emb.shape: ", users_emb.shape, items_emb.shape)
+        breakpoint()
         rating = self.decoder.forward(users_emb, items_emb)
         return rating
     
