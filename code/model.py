@@ -207,9 +207,11 @@ class LightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        print("users_emb.shape, items_emb.shape: ", users_emb.shape, items_emb.shape)
-        breakpoint()
-        rating = self.decoder.forward(users_emb, items_emb)
+        num_users = users_emb.shape[0]
+        num_items = items_emb.shape[0]
+        users_emb_flat = users_emb.reshape(num_users, -1)
+        items_emb_flat = items_emb.reshape(num_items, -1)
+        rating = torch.matmul(users_emb_flat, items_emb_flat.t())
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
