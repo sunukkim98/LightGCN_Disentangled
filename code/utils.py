@@ -39,9 +39,7 @@ class BPRLoss:
         self.opt = optim.Adam(recmodel.parameters(), lr=self.lr)
 
     def stageOne(self, users, pos, neg):
-        loss, reg_loss = self.model.bpr_loss(users, pos, neg)
-        reg_loss = reg_loss*self.weight_decay
-        loss = loss + reg_loss
+        loss = self.model.bpr_loss(users, pos, neg)
 
         self.opt.zero_grad()
         loss.backward()

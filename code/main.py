@@ -16,6 +16,9 @@ print(">>SEED:", world.seed)
 import register
 from register import dataset
 
+from models.encoder import Encoder
+from models.decoder import PariwiseCorrelationDecoder
+
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
@@ -31,7 +34,24 @@ emb_path = f'embs/{config}.pkl'
 #     print('Exists.')
 #     exit(0)
 
-Recmodel = register.MODELS[world.model_name](world.config, dataset)
+encoder = Encoder(in_dim=world.config['latent_dim_rec'], 
+                  out_dim=world.config['latent_dim_rec'],
+                  num_factors=world.config['num_factors'],
+                  num_layers=world.config['lightGCN_n_layers'],
+                  aggr_type=world.config['aggr_type'],
+                  act_fn=world.config['act_fn'])
+
+decoder = PariwiseCorrelationDecoder(
+    num_factors=world.config['num_factors'],
+    out_dim=world.config['latent_dim_rec'],
+    num_users=dataset.n_users,
+    num_items=dataset.m_items
+)
+
+Recmodel = register.MODELS[world.model_name](world.config,
+                                             dataset,
+                                             encoder=encoder,
+                                             decoder=decoder)
 Recmodel = Recmodel.to(world.device)
 bpr = utils.BPRLoss(Recmodel, world.config)
 

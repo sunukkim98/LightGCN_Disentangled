@@ -12,9 +12,7 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
-from models.encoder import InitDisenLayer
 from models.encoder import Encoder
-# from models.dlgconv import DLGConv
 from models.decoder import PariwiseCorrelationDecoder
 
 
@@ -90,10 +88,14 @@ class PureMF(BasicModel):
 class LightGCN(BasicModel):
     def __init__(self, 
                  config:dict, 
-                 dataset:BasicDataset):
+                 dataset:BasicDataset,
+                 encoder:Encoder,
+                 decoder:PariwiseCorrelationDecoder):
         super(LightGCN, self).__init__()
         self.config = config
         self.dataset : dataloader.BasicDataset = dataset
+        self.encoder = encoder
+        self.decoder = decoder
         self.__init_weight()
 
     def __init_weight(self):
@@ -103,6 +105,7 @@ class LightGCN(BasicModel):
         self.n_layers = self.config['lightGCN_n_layers']
         self.keep_prob = self.config['keep_prob']
         self.A_split = self.config['A_split']
+
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding_item = torch.nn.Embedding(
@@ -144,6 +147,36 @@ class LightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
+    def get_edge_list(self, sparse_adj):
+        """
+        Convert sparse adjacency matrix to edge list in format [[user1, item1], [user2, item2], ...]
+        
+        Args:
+            sparse_adj (torch.sparse.FloatTensor): Sparse adjacency matrix in format [I, R; R^T, I]
+            
+        Returns:
+            torch.Tensor: A tensor of shape (N, 2) containing [user_id, item_id] pairs
+        """
+        # Get indices from sparse tensor
+        indices = sparse_adj.indices()
+        
+        # Matrix size
+        n = sparse_adj.size(0)
+        n_users = self.dataset.n_users # Number of users
+        
+        # Filter edges between users and items (top-right quadrant)
+        mask = (indices[0] < n_users) & (indices[1] >= n_users)
+        user_item_indices = indices[:, mask]
+        
+        # Convert item indices to start from 0
+        users = user_item_indices[0]  # These are already 0-based
+        items = user_item_indices[1] - n_users  # Subtract offset to make 0-based
+        
+        # Stack users and items to create edge list
+        edge_list = torch.stack([users, items], dim=1)
+        
+        return edge_list
+    
     def computer(self):
         """
         propagate methods for lightGCN
@@ -152,7 +185,6 @@ class LightGCN(BasicModel):
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
         #   torch.split(all_emb , [self.num_users, self.num_items])
-        embs = [all_emb]
         if self.config['dropout']:
             if self.training:
                 print("droping")
@@ -162,29 +194,20 @@ class LightGCN(BasicModel):
         else:
             g_droped = self.Graph    
         
-        for layer in range(self.n_layers):
-            if self.A_split:
-                temp_emb = []
-                for f in range(len(g_droped)):
-                    temp_emb.append(torch.sparse.mm(g_droped[f], all_emb))
-                side_emb = torch.cat(temp_emb, dim=0)
-                all_emb = side_emb
-            else:
-                all_emb = torch.sparse.mm(g_droped, all_emb)
-            embs.append(all_emb)
-        embs = torch.stack(embs, dim=1)
-        #print(embs.size())
-        light_out = torch.mean(embs, dim=1)
+        edge_list = self.get_edge_list(g_droped)
 
-        _users, _items = torch.split(embs, [self.num_users, self.num_items])
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
+        Z, _Z = self.encoder.forward(X = all_emb, edges=edge_list)
+
+        _users, _items = torch.split(_Z, [self.num_users, self.num_items], dim=0)
+        users, items = torch.split(Z, [self.num_users, self.num_items], dim=0)
+
         return users, items, _users, _items
     
     def getUsersRating(self, users):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        rating = self.f(torch.matmul(users_emb, items_emb.t()))
+        rating = self.decoder.forward(users_emb, items_emb)
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
@@ -192,25 +215,16 @@ class LightGCN(BasicModel):
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
-        users_emb_ego = self.embedding_user(users)
-        pos_emb_ego = self.embedding_item(pos_items)
-        neg_emb_ego = self.embedding_item(neg_items)
-        return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
+        return users_emb, pos_emb, neg_emb
     
     def bpr_loss(self, users, pos, neg):
-        (users_emb, pos_emb, neg_emb, 
-        userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
-        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-                         posEmb0.norm(2).pow(2)  +
-                         negEmb0.norm(2).pow(2))/float(len(users))
-        pos_scores = torch.mul(users_emb, pos_emb)
-        pos_scores = torch.sum(pos_scores, dim=1)
-        neg_scores = torch.mul(users_emb, neg_emb)
-        neg_scores = torch.sum(neg_scores, dim=1)
+        (users_emb, pos_emb, neg_emb) = self.getEmbedding(users.long(), pos.long(), neg.long())
+        pos_scores = self.decoder.forward(users_emb, pos_emb)
+        neg_scores = self.decoder.forward(users_emb, neg_emb)
         
         loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
         
-        return loss, reg_loss
+        return loss
        
     def forward(self, users, items):
         # compute embedding
@@ -219,6 +233,5 @@ class LightGCN(BasicModel):
         #all_users, all_items = self.computer()
         users_emb = all_users[users]
         items_emb = all_items[items]
-        inner_pro = torch.mul(users_emb, items_emb)
-        gamma     = torch.sum(inner_pro, dim=1)
+        gamma = self.decoder.calculate_score(users_emb, items_emb)
         return gamma

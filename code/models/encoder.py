@@ -112,5 +112,6 @@ class Encoder(nn.Module):
         f_emb = torch.stack(f_emb, dim=1)
         f_out = torch.mean(f_emb, dim=1)
 
+        _Z = f_emb
         Z = f_out
-        return Z # (N, K, d_out/K)
+        return Z, _Z# (N, K, d_out/K)

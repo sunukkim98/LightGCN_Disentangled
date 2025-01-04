@@ -51,7 +51,8 @@ config['save_layer_emb'] = args.save_layer_emb
 config['eval_metric'] = args.eval_metric
 
 config['num_factors'] = args.num_factors
-config['act_fn'] = args.act_fn
+if args.act_fn == 'relu':
+    config['act_fn'] = torch.nn.ReLU()    
 config['aggr_type'] = args.aggr_type
 
 GPU = torch.cuda.is_available()
