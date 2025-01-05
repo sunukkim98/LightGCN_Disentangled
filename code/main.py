@@ -25,7 +25,7 @@ if not os.path.exists('logs'):
 if not os.path.exists('embs'):
     os.mkdir('embs')
 
-config = f'{world.args.dataset}_seed{world.args.seed}_{world.args.model}_dim{world.args.recdim}_lr{world.args.lr}_dec{world.args.decay}'
+config = f'{world.args.dataset}_seed{world.args.seed}_{world.args.model}_dim{world.args.recdim}_lr{world.args.lr}_dec{world.args.decay}_metric{world.args.eval_metric}'
 
 log_path = f'logs/{config}.txt'
 emb_path = f'embs/{config}.pkl'
