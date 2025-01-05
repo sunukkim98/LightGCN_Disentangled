@@ -41,11 +41,38 @@ class PariwiseCorrelationDecoder(nn.Module):
         score = self.predictor(H.reshape(H.size(0), -1))
         return score.squeeze()
     
-    def getUserRating(self, users_emb, items_emb):
+    def getUsersRating(self, users_emb, items_emb):
         """
-        Calculate correlation score for user-item pairs
+        Calculate rating scores for all user-item pairs
+        users_emb: [num_users, 8, 8]
+        items_emb: [num_items, 8, 8]
         """
-        items_emb_t = torch.transpose(items_emb, 1, 2)
-        H = torch.bmm(users_emb, items_emb_t)
-        score = self.predictor(H.reshape(H.size(0), -1))
-        return score.squeeze()
+        num_users = users_emb.shape[0]
+        num_items = items_emb.shape[0]
+        
+        # Reshape users_emb to [num_users, 1, 8, 8] and expand to [num_users, num_items, 8, 8]
+        users_emb_expanded = users_emb.unsqueeze(1)
+        
+        batch_size = num_users
+        all_scores = []
+        
+        for i in range(0, num_items, batch_size):
+            end_idx = min(i + batch_size, num_items)
+            # Take a batch of items [batch_size, 8, 8]
+            items_batch = items_emb[i:end_idx]
+            
+            # Transpose item embeddings [batch_size, 8, 8] -> [8, batch_size, 8]
+            items_batch_t = torch.transpose(items_batch, 0, 1)
+            items_batch_t = torch.transpose(items_batch_t, 1, 2)
+            
+            # Calculate batch scores using bmm
+            # users_emb: [num_users, 8, 8], items_batch_t: [8, batch_size, 8]
+            H = torch.bmm(users_emb, items_batch_t)
+            
+            # Get scores for the batch
+            batch_scores = self.predictor(H.reshape(H.size(0), -1))
+            all_scores.append(batch_scores)
+        
+        # Concatenate all batch scores
+        rating = torch.cat(all_scores, dim=1)
+        return rating.squeeze()

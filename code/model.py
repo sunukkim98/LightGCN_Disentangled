@@ -207,12 +207,10 @@ class LightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        # Reshape for batch processing
         print("users_emb.shape: ", users_emb.shape)
         print("items_emb.shape: ", items_emb.shape)
-        breakpoint()
-        # Use decoder's forward method for consistency
-        rating = self.decoder.getUserRating(users_emb, items_emb)
+        # breakpoint()
+        rating = self.decoder.getUsersRating(users_emb, items_emb)
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
