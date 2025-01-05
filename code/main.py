@@ -125,8 +125,8 @@ try:
             
             with open(log_path, 'a') as f:
                 f.write('Early Stopping\n')
-                f.write(f'valid ' + ' '.join([str(x) for x in best_valid_log]) + '\n')
-                f.write(f'test ' + ' '.join([str(x) for x in best_test_log]) + '\n')
+                f.write(f'best valid ' + ' '.join([str(x) for x in best_valid_log]) + '\n')
+                f.write(f'best test ' + ' '.join([str(x) for x in best_test_log]) + '\n')
             exit(0)
 
     #     if epoch %10 == 0:
