@@ -47,7 +47,7 @@ class PariwiseCorrelationDecoder(nn.Module):
         items_emb: [num_items, 8, 8]
         """
         # items_emb를 transpose하여 correlation 계산
-        items_emb_t = items_emb.transpose(1, 2)
+        items_emb_t = items_emb.permute(0, 2, 1)  # Transpose last two dims
         
         # Calculate correlation matrix
         H = torch.matmul(users_emb, items_emb_t)
