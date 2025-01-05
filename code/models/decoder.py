@@ -34,6 +34,8 @@ class PariwiseCorrelationDecoder(nn.Module):
         """
         Calculate correlation score for user-item pairs
         """
+        print("users_emb.shape: ", users_emb.shape)
+        print("items_emb.shape: ", items_emb.shape)
         items_emb_t = torch.transpose(items_emb, 1, 2)
         H = torch.bmm(users_emb, items_emb_t)
         score = self.predictor(H.reshape(H.size(0), -1))
