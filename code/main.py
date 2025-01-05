@@ -99,6 +99,8 @@ try:
 
             if valid_results[world.eval_metric][0] > best_valid:
                 best_valid = valid_results[world.eval_metric][0]
+                best_valid_log = [valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['recall'][0], valid_results['recall'][1], valid_results['precision'][0], valid_results['precision'][1]]
+                best_test_log = [test_results['ndcg'][0], test_results['ndcg'][1], test_results['recall'][0], test_results['recall'][1], test_results['precision'][0], test_results['precision'][1]]
                 print("best_valid:", best_valid)
                 patience = 0
                 
@@ -117,10 +119,13 @@ try:
 
         if patience == 10:
             print('Early Stopping')
+            print(f'best valid ' + ' '.join([str(x) for x in best_valid_log]))
+            print(f'best test ' + ' '.join([str(x) for x in best_test_log]))
             
             with open(log_path, 'a') as f:
                 f.write('Early Stopping\n')
-                
+                f.write(f'valid ' + ' '.join([str(x) for x in best_valid_log]) + '\n')
+                f.write(f'test ' + ' '.join([str(x) for x in best_test_log]) + '\n')
             exit(0)
 
     #     if epoch %10 == 0:
