@@ -38,3 +38,12 @@ class PariwiseCorrelationDecoder(nn.Module):
         H = torch.bmm(users_emb, items_emb_t)
         score = self.predictor(H.reshape(H.size(0), -1))
         return score.squeeze()
+    
+    def getUserRating(self, users_emb, items_emb):
+        """
+        Calculate correlation score for user-item pairs
+        """
+        items_emb_t = torch.transpose(items_emb, 1, 2)
+        H = torch.bmm(users_emb, items_emb_t)
+        score = self.predictor(H.reshape(H.size(0), -1))
+        return score.squeeze()
