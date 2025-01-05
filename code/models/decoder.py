@@ -51,7 +51,8 @@ class PariwiseCorrelationDecoder(nn.Module):
         # Calculate correlation matrix
         H = torch.matmul(users_emb, items_emb_t)
         
-        # Reshape H to match predictor input dimension (self.K**2 = 64)
-        score = self.predictor(H.reshape(H.size(0), -1))
+        H_flatten = H.reshape(H.size(0), H.size(1), -1)
+        score = self.predictor(H_flatten)              
+        score = score.squeeze(-1)                      
         
-        return score.squeeze()
+        return score
