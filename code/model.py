@@ -207,8 +207,8 @@ class LightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        print("users_emb.shape: ", users_emb.shape)
-        print("items_emb.shape: ", items_emb.shape)
+        users_emb = users_emb.unsqueeze(1)
+        items_emb = items_emb.unsqueeze(0)
         # breakpoint()
         rating = self.decoder.getUsersRating(users_emb, items_emb)
         return rating
