@@ -49,23 +49,35 @@ class PariwiseCorrelationDecoder(nn.Module):
         num_users = users_emb.shape[0]  # batch_size로 사용
         num_items = items_emb.shape[0]
         
-        # users_emb: [num_users, 8, 8]을 그대로 사용
         all_scores = []
         
-        for i in range(0, num_items, num_users):  # num_users를 batch_size로 사용
+        for i in range(0, num_items, num_users):
             end_idx = min(i + num_users, num_items)
-            # Take a batch of items [batch_size, 8, 8]
             items_batch = items_emb[i:end_idx]
             
-            # Transpose item embeddings
-            items_batch_t = items_batch.transpose(1, 2)  # [batch_size, 8, 8] -> [batch_size, 8, 8]
+            # 현재 배치의 실제 크기
+            current_batch_size = end_idx - i
             
-            # Calculate batch scores using bmm
+            # 현재 배치가 num_users보다 작은 경우 패딩
+            if current_batch_size < num_users:
+                # 마지막 배치를 num_users 크기에 맞게 패딩
+                padding = items_emb[0:num_users-current_batch_size]
+                items_batch = torch.cat([items_batch, padding], dim=0)
+            
+            # Transpose item embeddings for correlation calculation
+            items_batch_t = items_batch.transpose(1, 2)
+            
+            # Calculate correlation matrix
             H = torch.bmm(users_emb, items_batch_t)
             
-            # Get scores for the batch
-            batch_scores = self.predictor(H.reshape(H.size(0), -1))
-            all_scores.append(batch_scores)
+            # Reshape H to match predictor input dimension (self.K**2 = 64)
+            score = self.predictor(H.reshape(num_users, -1))
+            
+            # 패딩된 부분 제거
+            if current_batch_size < num_users:
+                score = score[:, :current_batch_size]
+                
+            all_scores.append(score)
         
         # Concatenate all batch scores
         rating = torch.cat(all_scores, dim=1)
