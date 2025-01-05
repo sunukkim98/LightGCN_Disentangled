@@ -14,7 +14,6 @@ class PariwiseCorrelationDecoder(nn.Module):
         self.num_users = num_users
         self.num_items = num_items
         
-        # Classifier for prediction
         self.predictor = nn.Sequential(
             nn.Linear(self.K**2, 1, bias=False),
         )
@@ -47,26 +46,21 @@ class PariwiseCorrelationDecoder(nn.Module):
         users_emb: [num_users, 8, 8]
         items_emb: [num_items, 8, 8]
         """
-        num_users = users_emb.shape[0]
+        num_users = users_emb.shape[0]  # batch_size로 사용
         num_items = items_emb.shape[0]
         
-        # Reshape users_emb to [num_users, 1, 8, 8] and expand to [num_users, num_items, 8, 8]
-        users_emb_expanded = users_emb.unsqueeze(1)
-        
-        batch_size = num_users
+        # users_emb: [num_users, 8, 8]을 그대로 사용
         all_scores = []
         
-        for i in range(0, num_items, batch_size):
-            end_idx = min(i + batch_size, num_items)
+        for i in range(0, num_items, num_users):  # num_users를 batch_size로 사용
+            end_idx = min(i + num_users, num_items)
             # Take a batch of items [batch_size, 8, 8]
             items_batch = items_emb[i:end_idx]
             
-            # Transpose item embeddings [batch_size, 8, 8] -> [8, batch_size, 8]
-            items_batch_t = torch.transpose(items_batch, 0, 1)
-            items_batch_t = torch.transpose(items_batch_t, 1, 2)
+            # Transpose item embeddings
+            items_batch_t = items_batch.transpose(1, 2)  # [batch_size, 8, 8] -> [batch_size, 8, 8]
             
             # Calculate batch scores using bmm
-            # users_emb: [num_users, 8, 8], items_batch_t: [8, batch_size, 8]
             H = torch.bmm(users_emb, items_batch_t)
             
             # Get scores for the batch
