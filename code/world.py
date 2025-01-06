@@ -52,7 +52,11 @@ config['eval_metric'] = args.eval_metric
 
 config['num_factors'] = args.num_factors
 if args.act_fn == 'relu':
-    config['act_fn'] = torch.nn.ReLU()    
+    config['act_fn'] = torch.nn.ReLU()
+elif args.act_fn == 'leakyrelu':
+    config['act_fn'] = torch.nn.LeakyReLU()
+elif args.act_fn == 'tanh':
+    config['act_fn'] = torch.nn.Tanh()
 config['aggr_type'] = args.aggr_type
 
 GPU = torch.cuda.is_available()
