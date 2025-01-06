@@ -56,7 +56,7 @@ class Encoder(nn.Module):
         num_factors,
         num_layers,
         aggr_type,
-        act_fn=torch.relu
+        act_fn
     ):
         """
         Build a Encoder
