@@ -218,16 +218,22 @@ class LightGCN(BasicModel):
         users_emb = all_users[users]
         pos_emb = all_items[pos_items]
         neg_emb = all_items[neg_items]
-        return users_emb, pos_emb, neg_emb
+        users_emb_ego = self.embedding_user(users)
+        pos_emb_ego = self.embedding_item(pos_items)
+        neg_emb_ego = self.embedding_item(neg_items)
+        return users_emb, pos_emb, neg_emb, users_emb_ego, pos_emb_ego, neg_emb_ego
     
     def bpr_loss(self, users, pos, neg):
-        (users_emb, pos_emb, neg_emb) = self.getEmbedding(users.long(), pos.long(), neg.long())
+        (users_emb, pos_emb, neg_emb,
+         userEmb0, posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
         pos_scores = self.decoder.forward(users_emb, pos_emb)
         neg_scores = self.decoder.forward(users_emb, neg_emb)
-        
+        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
+                         posEmb0.norm(2).pow(2)  +
+                         negEmb0.norm(2).pow(2))/float(len(users))
         loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
         
-        return loss
+        return loss, reg_loss
        
     def forward(self, users, items):
         # compute embedding
