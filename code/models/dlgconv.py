@@ -98,6 +98,10 @@ class DLGConv(nn.Module):
             m: aggregated meesages of neighbors
         """
         src, dst = edges[:, 0], edges[:, 1]
+        src2, dst2 = edges[:, 1], edges[:, 0]
+        src = torch.cat([src, src2], dim=0)
+        dst = torch.cat([dst, dst2], dim=0)
+        
         
         out = f_in.new_zeros(f_in.shape)
         
