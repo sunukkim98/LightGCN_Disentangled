@@ -19,7 +19,7 @@ class InitDisenLayer(nn.Module):
         self.d_0 = out_dim
         self.K = num_factors
         self.act_fn = act_fn
-        self.setup_layers()
+        # self.setup_layers()
 
     def setup_layers(self):
         """
@@ -44,7 +44,14 @@ class InitDisenLayer(nn.Module):
         Returns:
             f_0: Initial disentangled node embedding
         """
-        f_0 = torch.einsum("ij,kjl->ikl", X, self.disen_weights) + self.disen_bias
+        # f_0 = torch.einsum("ij,kjl->ikl", X, self.disen_weights) + self.disen_bias
+        # 임베딩 변환 과정 제거
+        if self.K == 1:
+            f_0 = X.unsqueeze(1)
+        else:
+            N = X.size(0)
+            f_0 = X.view(N, self.K, -1)
+
         # f_0 = F.normalize(self.act_fn(f_0))
         f_0 = self.act_fn(f_0)
         return f_0
