@@ -76,12 +76,13 @@ class DLGConv(nn.Module):
         #     m_agg.append(m)
 
         # 무방향 그래프에서는 이웃 타입이 1개이므로, 반복문 생략
-        m = self.aggregate(f_in, edges)
+        ## m = self.aggregate(f_in, edges)
+        f_out = self.aggregate(f_in, edges)
         # m_agg.append(m)
 
         # f_out = self.update(m_agg) # v_0에서는 update 생략
         # f_out = self.normalize(m_agg) # 정규화 수행
-        f_out = F.normalize(m)
+        ## f_out = F.normalize(m)
         # print("dlgconv f_out.shape: ", f_out.shape)
         return f_out
 
