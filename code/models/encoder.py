@@ -52,7 +52,7 @@ class InitDisenLayer(nn.Module):
         #     N = X.size(0)
         #     f_0 = X.view(N, self.K, -1)
 
-        # f_0 = F.normalize(self.act_fn(f_0))
+        f_0 = F.normalize(self.act_fn(f_0))
         f_0 = self.act_fn(f_0)
         return f_0
     
