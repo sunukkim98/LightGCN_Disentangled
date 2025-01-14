@@ -79,9 +79,7 @@ class DLGConv(nn.Module):
         ## m = self.aggregate(f_in, edges)
         f_out = self.aggregate(f_in, edges)
         # m_agg.append(m)
-
-        # f_out = self.update(m_agg) # v_0에서는 update 생략
-        # f_out = self.normalize(m_agg) # 정규화 수행
+        
         ## f_out = F.normalize(m)
         # print("dlgconv f_out.shape: ", f_out.shape)
         return f_out
