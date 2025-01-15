@@ -21,25 +21,25 @@ class InitDisenLayer(nn.Module):
         self.act_fn = act_fn
         self.setup_layers()
 
-    # def setup_layers(self):
-    #     """
-    #     Set up layers 
-    #     """
-    #     self.disen_weights = nn.Parameter(torch.randn(self.K, self.d_0, self.d_in//self.K))
-    #     ## self.disen_weights = nn.Parameter(torch.empty(self.K, self.d_0, self.d_in//self.K))
-    #     self.disen_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in//self.K))
-    #     torch.nn.init.xavier_uniform_(self.disen_weights) 
-
-    ##################LightGCN 가중치 초기화 방식#################
     def setup_layers(self):
         """
         Set up layers 
         """
-        self.disen_weights = nn.Parameter(torch.randn(self.K, self.d_0, self.d_in // self.K))
-        self.disen_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in // self.K))
-        # LightGCN 초기화 방식 사용
-        nn.init.normal_(self.disen_weights, std=0.1)
-        nn.init.normal_(self.disen_bias, std=0.1)  # bias 초기화는 보통 0이지만, LightGCN의 경우 std=0.1 사용
+        self.disen_weights = nn.Parameter(torch.randn(self.K, self.d_0, self.d_in//self.K))
+        ## self.disen_weights = nn.Parameter(torch.empty(self.K, self.d_0, self.d_in//self.K))
+        self.disen_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in//self.K))
+        torch.nn.init.xavier_uniform_(self.disen_weights) 
+
+    ##################LightGCN 가중치 초기화 방식#################
+    # def setup_layers(self):
+    #     """
+    #     Set up layers 
+    #     """
+    #     self.disen_weights = nn.Parameter(torch.randn(self.K, self.d_0, self.d_in // self.K))
+    #     self.disen_bias = nn.Parameter(torch.zeros(1, self.K, self.d_in // self.K))
+    #     # LightGCN 초기화 방식 사용
+    #     nn.init.normal_(self.disen_weights, std=0.1)
+    #     nn.init.normal_(self.disen_bias, std=0.1)  # bias 초기화는 보통 0이지만, LightGCN의 경우 std=0.1 사용
 
 
     def forward(self, X):
@@ -66,7 +66,7 @@ class InitDisenLayer(nn.Module):
         #     f_0 = X.view(N, self.K, -1)
 
         # f_0 = F.normalize(self.act_fn(f_0))
-        f_0 = self.act_fn(f_0)
+        # f_0 = self.act_fn(f_0)
         return f_0
     
 class Encoder(nn.Module):
