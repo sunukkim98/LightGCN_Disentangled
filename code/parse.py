@@ -43,13 +43,13 @@ def parse_args():
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
     parser.add_argument('--gpu', type=int, default=0, help='gpu number')
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
-    parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
+    parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn, dlgn]')
     parser.add_argument('--save_layer_emb', type=int, default=0)
 
     parser.add_argument('--eval_metric', type=str, default="ndcg")
     
     parser.add_argument('--num_factors', type=int, default=8)
-    parser.add_argument('--act_fn', type=str, default="relu")
-    parser.add_argument('--aggr_type', type=str, default="sum")
+    parser.add_argument('--act_fn', type=str, default="relu", help='act_fn for initial disentangling layer, support [relu, leakyrelu, tanh]')
+    parser.add_argument('--aggr_type', type=str, default="sum", help='aggregation method, support [sum]')
 
     return parser.parse_args()

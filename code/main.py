@@ -25,21 +25,21 @@ if not os.path.exists('logs'):
 if not os.path.exists('embs'):
     os.mkdir('embs')
 
-# config = f'{world.args.dataset}_seed{world.args.seed}_{world.args.model}_dim{world.args.recdim}_lr{world.args.lr}_dec{world.args.decay}_metric{world.args.eval_metric}'
-config = f'{world.args.dataset}_epochs{world.args.epochs}_'
+config = f'{world.args.dataset}_model{world.args.model}_epochs{world.args.epochs}_'
 config = f'{config}bpr_batch{world.args.bpr_batch}_'
-config = f'{config}testbatch{world.args.testbatch}_'
-config = f'{config}testbatch{world.args.testbatch}_'
 config = f'{config}act_fn{world.args.act_fn}_'
-config = f'{config}num_factors{world.args.num_factors}_'
+config = f'{config}K{world.args.num_factors}_'
+config = f'{config}layer{world.args.layer}_'
 config = f'{config}recdim{world.args.recdim}_'
 config = f'{config}lr{world.args.lr}_'
-config = f'{config}decay{world.args.decay}_'
-config = f'{config}metric{world.args.eval_metric}'
+config = f'{config}decay{world.args.decay}'
 
 log_path = f'logs/{config}.txt'
 emb_path = f'embs/{config}.pkl'
 
+"""
+Uncomment if you do not want to learn the model for settings you have already tried.
+"""
 # if os.path.exists(emb_path):
 #     print('Exists.')
 #     exit(0)
@@ -58,10 +58,14 @@ decoder = PariwiseCorrelationDecoder(
     num_items=dataset.m_items
 )
 
-Recmodel = register.MODELS[world.model_name](world.config,
+if world.args.model == 'dlgn':
+    Recmodel = register.MODELS[world.model_name](world.config,
                                              dataset,
                                              encoder=encoder,
                                              decoder=decoder)
+else:
+    Recmodel = register.MODELS[world.model_name](world.config,
+                                                 dataset)
 Recmodel = Recmodel.to(world.device)
 bpr = utils.BPRLoss(Recmodel, world.config)
 
@@ -97,11 +101,11 @@ try:
         if (epoch + 1) % 5 == 0:
             cprint("[VALIDATION]")
             valid_results = Procedure.Valid(dataset, Recmodel, epoch, w, world.config['multicore'])
-            valid_log = [valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['recall'][0], valid_results['recall'][1], valid_results['precision'][0], valid_results['precision'][1]]
+            valid_log = [valid_results['recall'][0], valid_results['recall'][1], valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['precision'][0], valid_results['precision'][1]]
             
             cprint("[TEST]")
             test_results = Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
-            test_log = [test_results['ndcg'][0], test_results['ndcg'][1], test_results['recall'][0], test_results['recall'][1], test_results['precision'][0], test_results['precision'][1]]
+            test_log = [test_results['recall'][0], test_results['recall'][1], test_results['ndcg'][0], test_results['ndcg'][1], test_results['precision'][0], test_results['precision'][1]]
             
             with open(log_path, 'a') as f:
                 f.write(f'valid ' + ' '.join([str(x) for x in valid_log]) + '\n')
@@ -109,8 +113,8 @@ try:
 
             if valid_results[world.eval_metric][0] > best_valid:
                 best_valid = valid_results[world.eval_metric][0]
-                best_valid_log = [valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['recall'][0], valid_results['recall'][1], valid_results['precision'][0], valid_results['precision'][1]]
-                best_test_log = [test_results['ndcg'][0], test_results['ndcg'][1], test_results['recall'][0], test_results['recall'][1], test_results['precision'][0], test_results['precision'][1]]
+                best_valid_log = [valid_results['recall'][0], valid_results['recall'][1], valid_results['ndcg'][0], valid_results['ndcg'][1], valid_results['precision'][0], valid_results['precision'][1]]
+                best_test_log = [test_results['recall'][0], test_results['recall'][1], test_results['ndcg'][0], test_results['ndcg'][1], test_results['precision'][0], test_results['precision'][1]]
                 print("best_valid:", best_valid)
                 print(f'best valid score:' + ' '.join([str(x) for x in best_valid_log]))
                 patience = 0
@@ -138,15 +142,6 @@ try:
                 f.write(f'best valid ' + ' '.join([str(x) for x in best_valid_log]) + '\n')
                 f.write(f'best test ' + ' '.join([str(x) for x in best_test_log]) + '\n')
             exit(0)
-
-    #     if epoch %10 == 0:
-    #         cprint("[TEST]")
-    #         Procedure.Valid(dataset, Recmodel, epoch, w, world.config['multicore'])
-    #     output_information = Procedure.BPR_train_original(dataset, Recmodel, bpr, epoch, neg_k=Neg_k,w=w)
-    #     print(f'EPOCH[{epoch+1}/{world.TRAIN_epochs}] {output_information}')
-    #     torch.save(Recmodel.state_dict(), weight_file)
-
-    # Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
 finally:
     if world.tensorboard:
         w.close()

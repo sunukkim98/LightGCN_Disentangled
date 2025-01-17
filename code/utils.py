@@ -40,10 +40,11 @@ class BPRLoss:
 
     def stageOne(self, users, pos, neg):
         loss, reg_loss = self.model.bpr_loss(users, pos, neg)
-        final_loss = loss + self.weight_decay * reg_loss
+        reg_loss = reg_loss * self.weight_decay
+        loss = loss + reg_loss
 
         self.opt.zero_grad()
-        final_loss.backward()
+        loss.backward()
         self.opt.step()
 
         return loss.cpu().item()

@@ -31,8 +31,7 @@ if not os.path.exists(FILE_PATH):
 
 config = {}
 all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book']
-all_models  = ['mf', 'lgn']
-# config['batch_size'] = 4096
+all_models  = ['mf', 'lgn', 'dlgn']
 config['bpr_batch_size'] = args.bpr_batch
 config['latent_dim_rec'] = args.recdim
 config['lightGCN_n_layers']= args.layer
@@ -71,9 +70,6 @@ if dataset not in all_dataset:
 if model_name not in all_models:
     raise NotImplementedError(f"Haven't supported {model_name} yet!, try {all_models}")
 
-
-
-
 TRAIN_epochs = args.epochs
 LOAD = args.load
 PATH = args.path
@@ -85,8 +81,6 @@ from warnings import simplefilter
 simplefilter(action="ignore", category=FutureWarning)
 
 eval_metric = args.eval_metric
-
-
 
 def cprint(words : str):
     print(f"\033[0;30;43m{words}\033[0m")
