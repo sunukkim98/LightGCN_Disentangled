@@ -1,8 +1,13 @@
+--find-links https://download.pytorch.org/whl/cu117
+torch==2.0.1
+
+--find-links https://data.pyg.org/whl/torch-2.0.1+cu117.html
+torch-scatter==2.1.1
+
 numpy==1.24.3
 pandas==2.2.3
-torch==2.0.1
-torch-scatter==2.1.1
 scikit-learn==1.2.2
 matplotlib==3.9.4
 tensorboardX==1.8
 tqdm==4.65.0
+protobuf==3.20.*
