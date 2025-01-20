@@ -43,8 +43,8 @@ class PariwiseCorrelationDecoder(nn.Module):
     def getUsersRating(self, users_emb, items_emb):
         """
         Calculate rating scores for all user-item pairs
-        users_emb: [num_users, 8, 8]
-        items_emb: [num_items, 8, 8]
+        users_emb: [num_users, K, K]
+        items_emb: [num_items, K, K]
         """
         items_emb_t = items_emb.transpose(2, 3)
         
