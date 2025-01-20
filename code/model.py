@@ -224,7 +224,7 @@ class DLightGCN(BasicModel):
                  dataset:BasicDataset,
                  encoder:Encoder,
                  decoder:PariwiseCorrelationDecoder):
-        super(LightGCN, self).__init__()
+        super(DLightGCN, self).__init__()
         self.config = config
         self.dataset : dataloader.BasicDataset = dataset
         self.encoder = encoder
