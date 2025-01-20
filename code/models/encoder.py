@@ -135,4 +135,6 @@ class Encoder(nn.Module):
 
         _Z = f_emb
         Z = f_out
+        print(Z.shape)
+        breakpoint()
         return Z, _Z# (N, K, d_out/K)
