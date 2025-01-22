@@ -60,9 +60,7 @@ decoder = PariwiseCorrelationDecoder(
 
 if world.args.model == 'dlgn':
     Recmodel = register.MODELS[world.model_name](world.config,
-                                             dataset,
-                                             encoder=encoder,
-                                             decoder=decoder)
+                                             dataset)
 else:
     Recmodel = register.MODELS[world.model_name](world.config,
                                                  dataset)
