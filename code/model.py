@@ -372,35 +372,23 @@ class DLightGCN(BasicModel):
     #     return users, items, users_layer_emb, items_layer_emb
 
     def computer(self):
-        users_emb = self.reshape_embedding(self.embedding_user.weight)  # (N_u, K, d)
-        items_emb = self.reshape_embedding(self.embedding_item.weight)  # (N_i, K, d)
-        all_emb = torch.cat([users_emb, items_emb], dim=0)  # (N_u+N_i, K, d)
+        users_emb = self.reshape_embedding(self.embedding_user.weight)
+        items_emb = self.reshape_embedding(self.embedding_item.weight)
+        all_emb = torch.cat([users_emb, items_emb], dim=0)
         embs = [all_emb]
         
-        if self.training and self.config['dropout']:
-            g_droped = self.__dropout(self.keep_prob)
-        else:
-            g_droped = self.Graph
+        g_droped = self.__dropout(self.keep_prob) if self.config['dropout'] and self.training else self.Graph
 
         for layer in range(self.n_layers):
-            if self.A_split:
-                temp_embs = []
-                for g in g_droped:
-                    temp = []
-                    for k in range(self.K):
-                        temp.append(torch.sparse.mm(g, all_emb[:, k, :]))
-                    temp_embs.append(torch.stack(temp, dim=1))
-                all_emb = torch.cat(temp_embs, dim=0)
-            else:
-                temp = []
-                for k in range(self.K):
-                    temp.append(torch.sparse.mm(g_droped, all_emb[:, k, :]))
-                all_emb = torch.stack(temp, dim=1)
+            all_emb_flat = all_emb.reshape(all_emb.size(0), -1)  # (N, K*d)
+            new_emb = torch.sparse.mm(g_droped, all_emb_flat)  # (N, K*d)
+            all_emb = new_emb.reshape(all_emb.size())  # (N, K, d)
             embs.append(all_emb)
         
-        embs = torch.stack(embs, dim=1)  # (N_u+N_i, L+1, K, d)
-        light_out = torch.mean(embs, dim=1)  # (N_u+N_i, K, d)
+        embs = torch.stack(embs, dim=1)
+        light_out = torch.mean(embs, dim=1)
         users, items = torch.split(light_out, [self.num_users, self.num_items])
+        
         return users, items, embs[:self.num_users], embs[self.num_items:]
     
     # def getUsersRating(self, users):
