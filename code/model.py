@@ -225,7 +225,7 @@ class DLightGCN(BasicModel):
         self.num_items = self.dataset.m_items
         self.latent_dim = self.config['latent_dim_rec']
         self.n_layers = self.config['lightGCN_n_layers']
-        self.n_factors = self.config['n_factors']  # 추가: 디스엔탱글된 요인의 수
+        self.n_factors = self.config['num_factors']  # 추가: 디스엔탱글된 요인의 수
         self.keep_prob = self.config['keep_prob']
         self.A_split = self.config['A_split']
         self.__init_weight()
