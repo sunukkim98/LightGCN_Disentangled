@@ -305,6 +305,8 @@ class DLightGCN(BasicModel):
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
+        # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
+        all_emb = all_emb.unsqueeze(1).expand(-1, self.K, -1)
         
         # 초기 disentanglement 적용
         all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
