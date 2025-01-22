@@ -218,40 +218,67 @@ class LightGCN(BasicModel):
         return gamma
 
 class DLightGCN(BasicModel):
-    def __init__(self, config: dict, dataset: BasicDataset):
+    def __init__(self, 
+                 config:dict, 
+                 dataset:BasicDataset):
         super(DLightGCN, self).__init__()
         self.config = config
-        self.dataset = dataset
-        self.num_users = self.dataset.n_users
-        self.num_items = self.dataset.m_items
-        self.latent_dim = self.config['latent_dim_rec']
-        self.n_layers = self.config['lightGCN_n_layers']
-        self.n_factors = self.config['num_factors']  # 추가: 디스엔탱글된 요인의 수
-        self.keep_prob = self.config['keep_prob']
-        self.A_split = self.config['A_split']
+        self.dataset : dataloader.BasicDataset = dataset
         self.__init_weight()
-        self.Graph = self.dataset.getSparseGraph()
 
     def __init_weight(self):
-        self.embedding_user = nn.Embedding(self.num_users, self.latent_dim)
-        self.embedding_item = nn.Embedding(self.num_items, self.latent_dim)
+        self.num_users  = self.dataset.n_users
+        self.num_items  = self.dataset.m_items
+        self.latent_dim = self.config['latent_dim_rec']
+        self.n_layers = self.config['lightGCN_n_layers']
+        self.keep_prob = self.config['keep_prob']
+        self.A_split = self.config['A_split']
+        self.K = self.config['num_factors']
+
+        self.factor_weights = nn.Parameter(torch.randn(self.K_factors, self.latent_dim) * 0.1)
+        self.factor_bias = nn.Parameter(torch.zeros(self.K_factors))
+
+        self.embedding_user = torch.nn.Embedding(
+            num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.embedding_item = torch.nn.Embedding(
+            num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         
         if self.config['pretrain'] == 0:
+#             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
+#             nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
+#             print('use xavier initilizer')
+# random normal init seems to be a better choice when lightGCN actually don't use any non-linear activation function
             nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
-            world.cprint('use NORMAL distribution initializer')
+            world.cprint('use NORMAL distribution initilizer')
         else:
             self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
-            print('use pretrained data')
-        
-        # 추가: 각 요인에 대한 선형 변환 레이어
-        self.factor_k = nn.ModuleList([nn.Linear(self.latent_dim, self.latent_dim) for _ in range(self.n_factors)])
-        # 추가: 페어와이즈 상관 디코더를 위한 가중치 행렬
-        self.W_s = nn.Parameter(torch.Tensor(self.n_factors, self.n_factors))
-        nn.init.xavier_uniform_(self.W_s)
+            print('use pretarined data')
 
-    def __dropout(self, x, keep_prob):
+        self.act_fn = self.config['act_fn']
+
+        # Add learnable weight matrix Ws for factor correlation
+        self.Ws = nn.Parameter(torch.randn(self.K_factors, self.K_factors) * 0.1)
+        self.f = nn.Sigmoid()
+        self.Graph = self.dataset.getSparseGraph()
+        print(f"lgn is already to go(dropout:{self.config['dropout']})")
+
+    def initial_disentangle(self, x):
+        # x: input features
+        factors = []
+        for k in range(self.K_factors):
+            # FC layer for each factor
+            factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
+            # Apply activation (ReLU or tanh based on config)
+            factor = self.activation(factor)
+            # L2 normalize
+            factor = F.normalize(factor, p=2, dim=-1)
+            factors.append(factor)
+        
+        return torch.stack(factors, dim=1)  # Stack K factors
+
+    def __dropout_x(self, x, keep_prob):
         size = x.size()
         index = x.indices().t()
         values = x.values()
@@ -261,107 +288,159 @@ class DLightGCN(BasicModel):
         values = values[random_index]/keep_prob
         g = torch.sparse.FloatTensor(index.t(), values, size)
         return g
-
+    
+    def __dropout(self, keep_prob):
+        if self.A_split:
+            graph = []
+            for g in self.Graph:
+                graph.append(self.__dropout_x(g, keep_prob))
+        else:
+            graph = self.__dropout_x(self.Graph, keep_prob)
+        return graph
+    
     def computer(self):
-        # LightGCN의 원래 구조를 유지
+        """
+        Disentangled Light Graph Convolution propagation
+        """       
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
-        embs = [all_emb]
+        
+        # 초기 disentanglement 적용
+        all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
         
         if self.config['dropout']:
             if self.training:
-                print("dropping")
-                g_droped = self.__dropout(self.Graph, self.keep_prob)
+                print("droping")
+                g_droped = self.__dropout(self.keep_prob)
             else:
                 g_droped = self.Graph        
         else:
-            g_droped = self.Graph
+            g_droped = self.Graph    
         
-        for layer in range(self.n_layers):
-            all_emb = torch.sparse.mm(g_droped, all_emb)
-            embs.append(all_emb)
+        # 각 factor별로 독립적인 propagation 수행
+        final_embs = []
+        layer_embs = []  # 각 레이어의 임베딩을 저장
         
-        embs = torch.stack(embs, dim=1)
-        light_out = torch.mean(embs, dim=1)
+        for k in range(self.K_factors):
+            factor_emb = all_emb[:, k, :]  # k번째 factor 추출
+            k_layer_embs = [factor_emb]
+            
+            for layer in range(self.n_layers):
+                if self.A_split:
+                    temp_emb = []
+                    for f in range(len(g_droped)):
+                        # neighborhood aggregation
+                        aggregated = torch.sparse.mm(g_droped[f], factor_emb)
+                        temp_emb.append(aggregated)
+                    factor_emb = torch.cat(temp_emb, dim=0)
+                else:
+                    # neighborhood aggregation
+                    factor_emb = torch.sparse.mm(g_droped, factor_emb)
+                    
+                k_layer_embs.append(factor_emb)
+                
+            # Stack L layers for factor k
+            k_stacked_embs = torch.stack(k_layer_embs, dim=1)  # (N, L+1, dim)
+            layer_embs.append(k_stacked_embs)
+            
+            final_emb = torch.mean(k_stacked_embs, dim=1)  # final disentangled factor
+            final_embs.append(final_emb)
         
-        users, items = torch.split(light_out, [self.num_users, self.num_items])
-        return users, items
+        # Combine all factors
+        layer_all_emb = torch.stack(layer_embs, dim=2)  # (N, L+1, K, dim)
+        final_all_emb = torch.stack(final_embs, dim=-1)  # (N, dim, K)
+        
+        # Split users and items embeddings
+        users, items = torch.split(final_all_emb, [self.num_users, self.num_items])
+        users_layer_emb, items_layer_emb = torch.split(layer_all_emb, [self.num_users, self.num_items])
+        
+        return users, items, users_layer_emb, items_layer_emb
+    
+    def getUsersRating(self, users):
+        """
+        Calculate rating scores for given users with all items
+        """
+        # Get embeddings
+        all_users, all_items, _, _ = self.computer()
+        
+        # Get specific users embeddings
+        users_emb = all_users[users]  # shape: (n_users, dim, K)
+        
+        # Calculate pairwise correlations matrix (H_ui) for all items
+        # users_emb: (n_users, dim, K), all_items: (n_items, dim, K)
+        # H_ui: (n_users, n_items, K, K)
+        H_ui = torch.matmul(users_emb.transpose(1, 2), 
+                        all_items.transpose(1, 2).transpose(0, 1))
+        
+        # Calculate scores using learnable weight matrix Ws
+        # Ws: (K, K)
+        # weighted_H: (n_users, n_items, K, K)
+        weighted_H = H_ui * self.Ws
+        
+        # Sum over both K dimensions to get final rating scores
+        # rating: (n_users, n_items)
+        rating = weighted_H.sum(dim=[-2, -1])
+        
+        return self.f(rating)
+    
+    def getEmbedding(self, users, pos_items, neg_items):
+        all_users, all_items, users_layer_emb, items_layer_emb = self.computer()
+        
+        users_emb = all_users[users]  
+        pos_emb = all_items[pos_items]
+        neg_emb = all_items[neg_items]
+        
+        users_layer = users_layer_emb[users]
+        pos_layer = items_layer_emb[pos_items] 
+        neg_layer = items_layer_emb[neg_items]
+        
+        return users_emb, pos_emb, neg_emb, users_layer, pos_layer, neg_layer
 
-    # 추가: 디스엔탱글된 요인을 얻는 메서드
-    def get_disentangled_factors(self, embeddings):
-        factors = []
-        for k in range(self.n_factors):
-            f_k = F.tanh(self.factor_k[k](embeddings))
-            f_k = F.normalize(f_k, p=2, dim=1)
-            factors.append(f_k)
-        return factors
-
-    # 변경: 페어와이즈 상관 디코더를 사용하는 forward 메서드
-    def forward(self, users, items):
-        all_users, all_items = self.computer()
-        users_emb = all_users[users]
-        items_emb = all_items[items]
-        
-        user_factors = self.get_disentangled_factors(users_emb)
-        item_factors = self.get_disentangled_factors(items_emb)
-        
-        H_ui = torch.zeros(users.size(0), items.size(0), self.n_factors, self.n_factors).to(users.device)
-        for i in range(self.n_factors):
-            for j in range(self.n_factors):
-                H_ui[:, :, i, j] = torch.mm(user_factors[i], item_factors[j].t())
-        
-        scores = torch.sum(H_ui * self.W_s.unsqueeze(0).unsqueeze(0), dim=(2, 3))
-        return scores
-
-    # 변경: BPR 손실 계산 메서드
     def bpr_loss(self, users, pos, neg):
-        pos_scores = self.forward(users, pos)
-        neg_scores = self.forward(users, neg)
+        users_emb, pos_emb, neg_emb, users_layer, pos_layer, neg_layer = self.getEmbedding(users.long(), pos.long(), neg.long())
         
+        # Calculate pairwise correlations for positive and negative pairs
+        pos_H_ui = torch.matmul(users_emb.transpose(1, 2), pos_emb)
+        neg_H_ui = torch.matmul(users_emb.transpose(1, 2), neg_emb)
+        
+        # Calculate scores
+        pos_scores = (pos_H_ui * self.Ws).sum(dim=[-2,-1])
+        neg_scores = (neg_H_ui * self.Ws).sum(dim=[-2,-1])
+        
+        # BPR loss
         loss = torch.mean(F.softplus(neg_scores - pos_scores))
         
-        reg_loss = (1/2)*(self.embedding_user(users).norm(2).pow(2) + 
-                          self.embedding_item(pos).norm(2).pow(2) +
-                          self.embedding_item(neg).norm(2).pow(2))/float(len(users))
+        # L2 regularization
+        reg_loss = (1/2)*(users_layer.norm(2).pow(2) + 
+                            pos_layer.norm(2).pow(2) + 
+                            neg_layer.norm(2).pow(2))/float(len(users))
         
         return loss, reg_loss
-
-    # # 추가: 판별 손실 계산 메서드
-    # def get_discriminative_loss(self, embeddings):
-    #     factors = self.get_disentangled_factors(embeddings)
-    #     disc_loss = 0
-    #     for k, factor in enumerate(factors):
-    #         logits = F.linear(factor, self.factor_k[k].weight)
-    #         labels = torch.full((factor.size(0),), k, dtype=torch.long, device=factor.device)
-    #         disc_loss += F.cross_entropy(logits, labels)
-    #     return disc_loss / self.n_factors
-
-    # # 변경: 최종 손실 계산 메서드
-    # def calc_loss(self, users, pos, neg):
-    #     bpr_loss, reg_loss = self.bpr_loss(users, pos, neg)
-    #     all_users, all_items = self.computer()
-    #     # disc_loss_users = self.get_discriminative_loss(all_users[users])
-    #     # disc_loss_items = self.get_discriminative_loss(all_items[pos])
+       
+    def forward(self, users, items):
+        """
+        Calculate score for given user-item pairs using pairwise correlation decoder
+        """
+        # Get embeddings from computer()
+        all_users, all_items, _, _ = self.computer()
         
-    #     # loss = bpr_loss + self.config['lambda_reg'] * reg_loss + \
-    #     #        self.config['lambda_disc'] * (disc_loss_users + disc_loss_items)
+        # Get specific user-item embeddings
+        users_emb = all_users[users]  # shape: (batch_size, dim, K)
+        items_emb = all_items[items]  # shape: (batch_size, dim, K)
         
-    #     loss = bpr_loss + self.config['lambda_reg'] * reg_loss
+        # Calculate pairwise correlations matrix (H_ui)
+        # users_emb: (batch_size, dim, K), items_emb: (batch_size, dim, K)
+        # H_ui: (batch_size, K, K)
+        H_ui = torch.matmul(users_emb.transpose(1, 2), items_emb)
         
-    #     return loss
-
-    def getUsersRating(self, users):
-        all_users, all_items = self.computer()
-        users_emb = all_users[users.long()]
-        items_emb = all_items
-        user_factors = self.get_disentangled_factors(users_emb)
-        item_factors = self.get_disentangled_factors(items_emb)
+        # Calculate final scores using learnable weight matrix Ws
+        # Ws: (K, K)
+        # weighted_H: (batch_size, K, K)
+        weighted_H = H_ui * self.Ws
         
-        H_ui = torch.zeros(users.size(0), self.num_items, self.n_factors, self.n_factors).to(users.device)
-        for i in range(self.n_factors):
-            for j in range(self.n_factors):
-                H_ui[:, :, i, j] = torch.mm(user_factors[i], item_factors[j].t())
+        # Sum over both K dimensions to get final score
+        # scores: (batch_size,)
+        scores = weighted_H.sum(dim=[-2, -1])
         
-        rating = torch.sum(H_ui * self.W_s.unsqueeze(0).unsqueeze(0), dim=(2, 3))
-        return rating
+        return scores
