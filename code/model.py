@@ -384,11 +384,16 @@ class DLightGCN(BasicModel):
             if self.A_split:
                 temp_emb = []
                 for f in range(len(g_droped)):
-                    aggregated = torch.sparse.mm(g_droped[f], all_emb.view(all_emb.size(0), -1))
-                    temp_emb.append(aggregated.view(all_emb.size()))
+                    # 2D 형태로 변환하여 propagation
+                    current_emb = all_emb.reshape(all_emb.size(0), -1)
+                    aggregated = torch.sparse.mm(g_droped[f], current_emb)
+                    # 원래 shape으로 복원
+                    temp_emb.append(aggregated.reshape(all_emb.size()))
                 all_emb = torch.cat(temp_emb, dim=0)
             else:
-                all_emb = torch.sparse.mm(g_droped, all_emb.view(all_emb.size(0), -1)).view(all_emb.size())
+                # 2D 형태로 변환하여 propagation
+                current_emb = all_emb.reshape(all_emb.size(0), -1)
+                all_emb = torch.sparse.mm(g_droped, current_emb).reshape(all_emb.size())
             embs.append(all_emb)
 
         embs = torch.stack(embs, dim=1)
