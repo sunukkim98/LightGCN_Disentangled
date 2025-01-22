@@ -365,23 +365,10 @@ class DLightGCN(BasicModel):
         """
         # Get embeddings
         all_users, all_items, _, _ = self.computer()
+        users_emb = all_users[users]
         
-        # Get specific users embeddings
-        users_emb = all_users[users]  # shape: (n_users, dim, K)
-        
-        # Calculate pairwise correlations matrix (H_ui) for all items
-        # users_emb: (n_users, dim, K), all_items: (n_items, dim, K)
-        # H_ui: (n_users, n_items, K, K)
-        H_ui = torch.matmul(users_emb.transpose(1, 2), 
-                        all_items.transpose(1, 2).transpose(0, 1))
-        
-        # Calculate scores using learnable weight matrix Ws
-        # Ws: (K, K)
-        # weighted_H: (n_users, n_items, K, K)
+        H_ui = torch.matmul(users_emb, all_items.transpose(1, 2))
         weighted_H = H_ui * self.Ws
-        
-        # Sum over both K dimensions to get final rating scores
-        # rating: (n_users, n_items)
         rating = weighted_H.sum(dim=[-2, -1])
         
         return self.f(rating)
