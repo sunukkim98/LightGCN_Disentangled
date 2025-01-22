@@ -170,8 +170,6 @@ class LightGCN(BasicModel):
             embs.append(all_emb)
         embs = torch.stack(embs, dim=1)
         light_out = torch.mean(embs, dim=1)
-        print(light_out.shape)
-        breakpoint()
 
         _users, _items = torch.split(embs, [self.num_users, self.num_items])
         users, items = torch.split(light_out, [self.num_users, self.num_items])
@@ -303,8 +301,6 @@ class DLightGCN(BasicModel):
             embs.append(all_emb)
         embs = torch.stack(embs, dim=1)
         light_out = torch.mean(embs, dim=1)
-        print(light_out.shape)
-        breakpoint()
 
         _users, _items = torch.split(embs, [self.num_users, self.num_items])
         users, items = torch.split(light_out, [self.num_users, self.num_items])
