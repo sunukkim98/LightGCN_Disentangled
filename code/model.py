@@ -306,12 +306,12 @@ class DLightGCN(BasicModel):
         user_factors = self.get_disentangled_factors(users_emb)
         item_factors = self.get_disentangled_factors(items_emb)
         
-        H_ui = torch.zeros(users.size(0), self.n_factors, self.n_factors).to(users.device)
+        H_ui = torch.zeros(users.size(0), items.size(0), self.n_factors, self.n_factors).to(users.device)
         for i in range(self.n_factors):
             for j in range(self.n_factors):
-                H_ui[:, i, j] = torch.sum(user_factors[i] * item_factors[j], dim=1)
+                H_ui[:, :, i, j] = torch.mm(user_factors[i], item_factors[j].t())
         
-        scores = torch.sum(H_ui * self.W_s, dim=(1, 2))
+        scores = torch.sum(H_ui * self.W_s.unsqueeze(0).unsqueeze(0), dim=(2, 3))
         return scores
 
     # 변경: BPR 손실 계산 메서드
@@ -355,5 +355,13 @@ class DLightGCN(BasicModel):
         all_users, all_items = self.computer()
         users_emb = all_users[users.long()]
         items_emb = all_items
-        rating = self.forward(users, torch.arange(self.num_items).to(users.device))
+        user_factors = self.get_disentangled_factors(users_emb)
+        item_factors = self.get_disentangled_factors(items_emb)
+        
+        H_ui = torch.zeros(users.size(0), self.num_items, self.n_factors, self.n_factors).to(users.device)
+        for i in range(self.n_factors):
+            for j in range(self.n_factors):
+                H_ui[:, :, i, j] = torch.mm(user_factors[i], item_factors[j].t())
+        
+        rating = torch.sum(H_ui * self.W_s.unsqueeze(0).unsqueeze(0), dim=(2, 3))
         return rating
