@@ -271,7 +271,7 @@ class DLightGCN(BasicModel):
             # FC layer for each factor
             factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
             # Apply activation (ReLU or tanh based on config)
-            factor = self.activation(factor)
+            factor = self.act_fn(factor)
             # L2 normalize
             factor = F.normalize(factor, p=2, dim=-1)
             factors.append(factor)
