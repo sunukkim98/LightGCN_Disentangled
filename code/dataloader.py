@@ -423,21 +423,21 @@ class Loader(BasicDataset):
                 adj_mat = adj_mat.todok()
                 
                 rowsum = np.array(adj_mat.sum(axis=1))
-                # d_inv = np.power(rowsum, -0.5).flatten()
-                # d_inv[np.isinf(d_inv)] = 0.
-                # d_mat = sp.diags(d_inv)
 
-                # norm_adj = d_mat.dot(adj_mat)
-                # norm_adj = norm_adj.dot(d_mat)
-                # norm_adj = norm_adj.tocsr()
-
-                # L2 norm
-                row_l2_norm = np.sqrt(np.array(adj_mat.multiply(adj_mat).sum(axis=1)))
-                d_inv = np.power(row_l2_norm, -1.0).flatten()
+                # Symmetrically normalize adjacency matrix
+                d_inv = np.power(rowsum, -0.5).flatten()
                 d_inv[np.isinf(d_inv)] = 0.
                 d_mat = sp.diags(d_inv)
-                
                 norm_adj = d_mat.dot(adj_mat)
+                norm_adj = norm_adj.dot(d_mat)
+
+                # # L2 norm
+                # row_l2_norm = np.sqrt(np.array(adj_mat.multiply(adj_mat).sum(axis=1)))
+                # d_inv = np.power(row_l2_norm, -1.0).flatten()
+                # d_inv[np.isinf(d_inv)] = 0.
+                # d_mat = sp.diags(d_inv)
+                # norm_adj = d_mat.dot(adj_mat)
+
                 norm_adj = norm_adj.tocsr()
                 end = time()
                 print(f"costing {end-s}s, saved norm_mat...")
