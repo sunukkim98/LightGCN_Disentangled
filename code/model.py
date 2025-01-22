@@ -235,8 +235,8 @@ class DLightGCN(BasicModel):
         self.A_split = self.config['A_split']
         self.K = self.config['num_factors']
 
-        self.factor_weights = nn.Parameter(torch.randn(self.K_factors, self.latent_dim) * 0.1)
-        self.factor_bias = nn.Parameter(torch.zeros(self.K_factors))
+        self.factor_weights = nn.Parameter(torch.randn(self.K, self.latent_dim) * 0.1)
+        self.factor_bias = nn.Parameter(torch.zeros(self.K))
 
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
@@ -259,7 +259,7 @@ class DLightGCN(BasicModel):
         self.act_fn = self.config['act_fn']
 
         # Add learnable weight matrix Ws for factor correlation
-        self.Ws = nn.Parameter(torch.randn(self.K_factors, self.K_factors) * 0.1)
+        self.Ws = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
         self.f = nn.Sigmoid()
         self.Graph = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
@@ -267,7 +267,7 @@ class DLightGCN(BasicModel):
     def initial_disentangle(self, x):
         # x: input features
         factors = []
-        for k in range(self.K_factors):
+        for k in range(self.K):
             # FC layer for each factor
             factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
             # Apply activation (ReLU or tanh based on config)
@@ -322,7 +322,7 @@ class DLightGCN(BasicModel):
         final_embs = []
         layer_embs = []  # 각 레이어의 임베딩을 저장
         
-        for k in range(self.K_factors):
+        for k in range(self.K):
             factor_emb = all_emb[:, k, :]  # k번째 factor 추출
             k_layer_embs = [factor_emb]
             
