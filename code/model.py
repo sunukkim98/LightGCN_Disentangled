@@ -282,8 +282,8 @@ class DLightGCN(BasicModel):
             factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
             # Apply activation (ReLU or tanh based on config)
             factor = self.act_fn(factor)
-            # # L2 normalize
-            # factor = F.normalize(factor, p=2, dim=-1)
+            # L2 normalize
+            factor = F.normalize(factor, p=2, dim=-1)
             factors.append(factor)
         
         return torch.stack(factors, dim=1)  # Stack K factors
@@ -384,6 +384,19 @@ class DLightGCN(BasicModel):
         rating = weighted_H.sum(dim=-1)
         
         return self.f(rating)
+    
+    def getEmbedding(self, users, pos_items, neg_items):
+        all_users, all_items, users_layer_emb, items_layer_emb = self.computer()
+        
+        users_emb = all_users[users]  
+        pos_emb = all_items[pos_items]
+        neg_emb = all_items[neg_items]
+        
+        users_layer = users_layer_emb[users]
+        pos_layer = items_layer_emb[pos_items] 
+        neg_layer = items_layer_emb[neg_items]
+        
+        return users_emb, pos_emb, neg_emb, users_layer, pos_layer, neg_layer
 
     def bpr_loss(self, users, pos, neg):
         users_emb, pos_emb, neg_emb, users_layer, pos_layer, neg_layer = self.getEmbedding(users.long(), pos.long(), neg.long())
