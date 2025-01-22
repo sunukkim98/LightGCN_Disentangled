@@ -309,92 +309,90 @@ class DLightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
-    def computer(self):
-        """
-        Disentangled Light Graph Convolution propagation
-        """       
-        # users_emb = self.embedding_user.weight
-        # items_emb = self.embedding_item.weight
+    # def computer(self):
+    #     """
+    #     Disentangled Light Graph Convolution propagation
+    #     """       
+    #     users_emb = self.embedding_user.weight
+    #     items_emb = self.embedding_item.weight
 
+    #     all_emb = torch.cat([users_emb, items_emb])
+
+    #     # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
+    #     all_emb = all_emb.unsqueeze(1).expand(-1, self.K, -1)
+        
+    #     # 초기 disentanglement 적용
+    #     all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
+        
+    #     if self.config['dropout']:
+    #         if self.training:
+    #             print("droping")
+    #             g_droped = self.__dropout(self.keep_prob)
+    #         else:
+    #             g_droped = self.Graph        
+    #     else:
+    #         g_droped = self.Graph    
+        
+    #     # 각 factor별로 독립적인 propagation 수행
+    #     final_embs = []
+    #     layer_embs = []  # 각 레이어의 임베딩을 저장
+        
+    #     for k in range(self.K):
+    #         factor_emb = all_emb[:, k, :]  # k번째 factor 추출
+    #         k_layer_embs = [factor_emb]
+            
+    #         for layer in range(self.n_layers):
+    #             if self.A_split:
+    #                 temp_emb = []
+    #                 for f in range(len(g_droped)):
+    #                     # neighborhood aggregation
+    #                     aggregated = torch.sparse.mm(g_droped[f], factor_emb)
+    #                     temp_emb.append(aggregated)
+    #                 factor_emb = torch.cat(temp_emb, dim=0)
+    #             else:
+    #                 # neighborhood aggregation
+    #                 factor_emb = torch.sparse.mm(g_droped, factor_emb)
+                    
+    #             k_layer_embs.append(factor_emb)
+                
+    #         # Stack L layers for factor k
+    #         k_stacked_embs = torch.stack(k_layer_embs, dim=1)  # (N, L+1, dim)
+    #         layer_embs.append(k_stacked_embs)
+            
+    #         final_emb = torch.mean(k_stacked_embs, dim=1)  # final disentangled factor
+    #         final_embs.append(final_emb)
+        
+    #     # Combine all factors
+    #     layer_all_emb = torch.stack(layer_embs, dim=2)  # (N, L+1, K, dim)
+    #     final_all_emb = torch.stack(final_embs, dim=-1)  # (N, dim, K)
+        
+    #     # Split users and items embeddings
+    #     users, items = torch.split(final_all_emb, [self.num_users, self.num_items])
+    #     users_layer_emb, items_layer_emb = torch.split(layer_all_emb, [self.num_users, self.num_items])
+        
+    #     return users, items, users_layer_emb, items_layer_emb
+
+    def computer(self):
         users_emb = self.reshape_embedding(self.embedding_user.weight)
         items_emb = self.reshape_embedding(self.embedding_item.weight)
-        
         all_emb = torch.cat([users_emb, items_emb])
-
         embs = [all_emb]
+            
+        g_droped = self.__dropout(self.keep_prob) if self.config['dropout'] and self.training else self.Graph
 
-        # # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
-        # all_emb = all_emb.unsqueeze(1).expand(-1, self.K, -1)
-        
-        # # 초기 disentanglement 적용
-        # all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
-        
-        if self.config['dropout']:
-            if self.training:
-                print("droping")
-                g_droped = self.__dropout(self.keep_prob)
-            else:
-                g_droped = self.Graph        
-        else:
-            g_droped = self.Graph    
-        
-        # 각 factor별로 독립적인 propagation 수행
-        final_embs = []
-        layer_embs = []  # 각 레이어의 임베딩을 저장
-        
-        # for k in range(self.K):
-        #     factor_emb = all_emb[:, k, :]  # k번째 factor 추출
-        #     k_layer_embs = [factor_emb]
-            
-        #     for layer in range(self.n_layers):
-        #         if self.A_split:
-        #             temp_emb = []
-        #             for f in range(len(g_droped)):
-        #                 # neighborhood aggregation
-        #                 aggregated = torch.sparse.mm(g_droped[f], factor_emb)
-        #                 temp_emb.append(aggregated)
-        #             factor_emb = torch.cat(temp_emb, dim=0)
-        #         else:
-        #             # neighborhood aggregation
-        #             factor_emb = torch.sparse.mm(g_droped, factor_emb)
-                    
-        #         k_layer_embs.append(factor_emb)
-                
-        #     # Stack L layers for factor k
-        #     k_stacked_embs = torch.stack(k_layer_embs, dim=1)  # (N, L+1, dim)
-        #     layer_embs.append(k_stacked_embs)
-            
-        #     final_emb = torch.mean(k_stacked_embs, dim=1)  # final disentangled factor
-        #     final_embs.append(final_emb)
-        
-        # # Combine all factors
-        # layer_all_emb = torch.stack(layer_embs, dim=2)  # (N, L+1, K, dim)
-        # final_all_emb = torch.stack(final_embs, dim=-1)  # (N, dim, K)
-        
-        # # Split users and items embeddings
-        # users, items = torch.split(final_all_emb, [self.num_users, self.num_items])
-        # users_layer_emb, items_layer_emb = torch.split(layer_all_emb, [self.num_users, self.num_items])
-        
-        # return users, items, users_layer_emb, items_layer_emb
         for layer in range(self.n_layers):
             if self.A_split:
                 temp_emb = []
                 for f in range(len(g_droped)):
-                    temp = []
-                    for k in range(self.K):
-                        temp.append(torch.sparse.mm(g_droped[f], all_emb[:,:,k]))
-                    temp_emb.append(torch.stack(temp, dim=1))
+                    aggregated = torch.sparse.mm(g_droped[f], all_emb.view(all_emb.size(0), -1))
+                    temp_emb.append(aggregated.view(all_emb.size()))
                 all_emb = torch.cat(temp_emb, dim=0)
             else:
-                temp = []
-                for k in range(self.K):
-                    temp.append(torch.sparse.mm(g_droped, all_emb[:,:,k])) 
-                all_emb = torch.stack(temp, dim=1)
+                all_emb = torch.sparse.mm(g_droped, all_emb.view(all_emb.size(0), -1)).view(all_emb.size())
             embs.append(all_emb)
-        
+
         embs = torch.stack(embs, dim=1)
         light_out = torch.mean(embs, dim=1)
-        
         users, items = torch.split(light_out, [self.num_users, self.num_items])
         return users, items, embs[:self.num_users], embs[self.num_items:]
     
