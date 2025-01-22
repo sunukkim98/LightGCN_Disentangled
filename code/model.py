@@ -313,8 +313,12 @@ class DLightGCN(BasicModel):
         """
         Disentangled Light Graph Convolution propagation
         """       
-        users_emb = self.embedding_user.weight
-        items_emb = self.embedding_item.weight
+        # users_emb = self.embedding_user.weight
+        # items_emb = self.embedding_item.weight
+
+        users_emb = self.reshape_embedding(self.embedding_user.weight)
+        items_emb = self.reshape_embedding(self.embedding_item.weight)
+        
         all_emb = torch.cat([users_emb, items_emb])
 
         embs = [all_emb]
