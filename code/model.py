@@ -12,6 +12,7 @@ import torch
 from dataloader import BasicDataset
 from torch import nn
 import numpy as np
+import torch.nn.functional as F
 from models.encoder import Encoder
 from models.decoder import PariwiseCorrelationDecoder
 
@@ -291,7 +292,7 @@ class DLightGCN(BasicModel):
     def get_disentangled_factors(self, embeddings):
         factors = []
         for k in range(self.n_factors):
-            f_k = F.relu(self.factor_k[k](embeddings))
+            f_k = F.tanh(self.factor_k[k](embeddings))
             f_k = F.normalize(f_k, p=2, dim=1)
             factors.append(f_k)
         return factors
