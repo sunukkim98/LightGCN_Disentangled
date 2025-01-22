@@ -380,7 +380,10 @@ class DLightGCN(BasicModel):
         embs = [all_emb]
         
         for layer in range(self.n_layers):
-            all_emb = torch.sparse.mm(g_droped, all_emb.view(-1, self.latent_dim)).view(all_emb.shape)
+            temp = []
+            for k in range(self.K):
+                temp.append(torch.sparse.mm(g_droped, all_emb[:, k, :]))
+            all_emb = torch.stack(temp, dim=1)
             embs.append(all_emb)
         
         embs = torch.stack(embs, dim=1)
