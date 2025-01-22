@@ -363,13 +363,13 @@ class DLightGCN(BasicModel):
         """
         Calculate rating scores for given users with all items
         """
-        # Get embeddings
         all_users, all_items, _, _ = self.computer()
-        users_emb = all_users[users]
+        users_emb = all_users[users]  # (batch_size, dim, K)
         
-        H_ui = torch.matmul(users_emb, all_items.transpose(1, 2))
-        weighted_H = H_ui * self.Ws
-        rating = weighted_H.sum(dim=[-2, -1])
+        # (batch_size, dim, K) x (n_items, dim, K) -> (batch_size, n_items, K)
+        H_ui = torch.einsum('bdk,ndk->bnk', users_emb, all_items)
+        weighted_H = H_ui * self.Ws.sum(-1)
+        rating = weighted_H.sum(dim=-1)
         
         return self.f(rating)
     
