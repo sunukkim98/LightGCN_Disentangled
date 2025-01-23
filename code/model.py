@@ -235,20 +235,23 @@ class DLightGCN(BasicModel):
         self.A_split = self.config['A_split']
         self.K = self.config['num_factors']
 
-        self.factor_weights = nn.Parameter(torch.randn(self.K, self.latent_dim) * 0.1)
-        self.factor_bias = nn.Parameter(torch.zeros(self.K))
+        # self.factor_weights = nn.Parameter(torch.randn(self.K, self.latent_dim) * 0.1)
+        # self.factor_bias = nn.Parameter(torch.zeros(self.K))
 
-        # Original embedding initialization
+        # Adjust latent dimension for K factors
+        self.factor_dim = self.latent_dim // self.K
+
+        # # Original embedding initialization
+        # self.embedding_user = torch.nn.Embedding(
+        #     num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        # self.embedding_item = torch.nn.Embedding(
+        #     num_embeddings=self.num_items, embedding_dim=self.latent_dim)
+        
+        # Change embedding initialization for K factors
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        
-        # # Change embedding initialization for K factors
-        # self.embedding_user = torch.nn.Embedding(
-        #     num_embeddings=self.num_users, embedding_dim=self.latent_dim*self.K)
-        # self.embedding_item = torch.nn.Embedding(
-        #     num_embeddings=self.num_items, embedding_dim=self.latent_dim*self.K)
         
         if self.config['pretrain'] == 0:
 #             nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
@@ -263,7 +266,7 @@ class DLightGCN(BasicModel):
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
             print('use pretarined data')
 
-        self.act_fn = self.config['act_fn']
+        # self.act_fn = self.config['act_fn']
 
         # Add learnable weight matrix Ws for factor correlation
         self.Ws = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
@@ -274,19 +277,26 @@ class DLightGCN(BasicModel):
     def reshape_embedding(self, embedding):
         return embedding.view(embedding.shape[0], self.K, -1).contiguous()
 
-    def initial_disentangle(self, x):
-        # x: input features
-        factors = []
-        for k in range(self.K):
-            # FC layer for each factor
-            factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
-            # Apply activation (ReLU or tanh based on config)
-            factor = self.act_fn(factor)
-            # L2 normalize
-            factor = F.normalize(factor, p=2, dim=-1)
-            factors.append(factor)
+    # def initial_disentangle(self, x):
+    #     # x: input features
+    #     factors = []
+    #     for k in range(self.K):
+    #         # FC layer for each factor
+    #         factor = torch.matmul(x, self.factor_weights[k]) + self.factor_bias[k]
+    #         # Apply activation (ReLU or tanh based on config)
+    #         factor = self.act_fn(factor)
+    #         # L2 normalize
+    #         factor = F.normalize(factor, p=2, dim=-1)
+    #         factors.append(factor)
         
-        return torch.stack(factors, dim=1)  # Stack K factors
+    #     return torch.stack(factors, dim=1)  # Stack K factors
+
+    def initial_disentangle(self, x):
+        batch_size = x.shape[0]
+
+        factors = x.view(batch_size, self.K, -1)
+
+        return factors
 
     def __dropout_x(self, x, keep_prob):
         size = x.size()
@@ -314,11 +324,10 @@ class DLightGCN(BasicModel):
         """       
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
-
         all_emb = torch.cat([users_emb, items_emb])
 
-        # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
-        all_emb = all_emb.unsqueeze(1).expand(-1, self.K, -1)
+        # # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
+        # all_emb = all_emb.unsqueeze(1).expand(-1, self.K, -1)
         
         # 초기 disentanglement 적용
         all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
