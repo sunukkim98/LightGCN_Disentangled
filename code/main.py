@@ -41,20 +41,6 @@ Uncomment if you do not want to learn the model for settings you have already tr
 #     print('Exists.')
 #     exit(0)
 
-encoder = Encoder(in_dim=world.config['latent_dim_rec'], 
-                  out_dim=world.config['latent_dim_rec'],
-                  num_factors=world.config['num_factors'],
-                  num_layers=world.config['lightGCN_n_layers'],
-                  aggr_type=world.config['aggr_type'],
-                  act_fn=world.config['act_fn'])
-
-decoder = PariwiseCorrelationDecoder(
-    num_factors=world.config['num_factors'],
-    out_dim=world.config['latent_dim_rec'],
-    num_users=dataset.n_users,
-    num_items=dataset.m_items
-)
-
 if world.args.model == 'dlgn':
     Recmodel = register.MODELS[world.model_name](world.config,
                                              dataset)
