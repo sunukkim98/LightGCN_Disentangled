@@ -13,8 +13,6 @@ from dataloader import BasicDataset
 from torch import nn
 import numpy as np
 import torch.nn.functional as F
-from models.encoder import Encoder
-from models.decoder import PariwiseCorrelationDecoder
 
 
 class BasicModel(nn.Module):    

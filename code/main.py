@@ -16,9 +16,6 @@ print(">>SEED:", world.seed)
 import register
 from register import dataset
 
-from models.encoder import Encoder
-from models.decoder import PariwiseCorrelationDecoder
-
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
