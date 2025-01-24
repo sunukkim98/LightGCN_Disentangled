@@ -239,13 +239,7 @@ class DLightGCN(BasicModel):
         # Adjust latent dimension for K factors
         self.factor_dim = self.latent_dim // self.K
 
-        # # Original embedding initialization
-        # self.embedding_user = torch.nn.Embedding(
-        #     num_embeddings=self.num_users, embedding_dim=self.latent_dim)
-        # self.embedding_item = torch.nn.Embedding(
-        #     num_embeddings=self.num_items, embedding_dim=self.latent_dim)
-        
-        # Change embedding initialization for K factors
+        # Original embedding initialization
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding_item = torch.nn.Embedding(
@@ -271,9 +265,6 @@ class DLightGCN(BasicModel):
         self.f = nn.Sigmoid()
         self.Graph = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
-
-    def reshape_embedding(self, embedding):
-        return embedding.view(embedding.shape[0], self.K, -1).contiguous()
 
     # def initial_disentangle(self, x):
     #     # x: input features
@@ -385,11 +376,12 @@ class DLightGCN(BasicModel):
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users]  # (batch_size, dim, K)
         
-        # (batch_size, dim, K) x (n_items, dim, K) -> (batch_size, n_items, K)
-        H_ui = torch.einsum('bdk,ndk->bnk', users_emb, all_items)
-        weighted_H = H_ui * self.Ws.sum(-1)
-        rating = weighted_H.sum(dim=-1)
-        
+        # # (batch_size, dim, K) x (n_items, dim, K) -> (batch_size, n_items, K)
+        # H_ui = torch.einsum('bdk,ndk->bnk', users_emb, all_items)
+        # weighted_H = H_ui * self.Ws.sum(-1)
+        # rating = weighted_H.sum(dim=-1)
+
+        rating = torch.sum(torch.matmul(users_emb, all_items.transpose(1, 2)), dim=-1)
         return self.f(rating)
     
     def getEmbedding(self, users, pos_items, neg_items):
@@ -408,13 +400,16 @@ class DLightGCN(BasicModel):
     def bpr_loss(self, users, pos, neg):
         users_emb, pos_emb, neg_emb, users_layer, pos_layer, neg_layer = self.getEmbedding(users.long(), pos.long(), neg.long())
         
-        # Calculate pairwise correlations for positive and negative pairs
-        pos_H_ui = torch.matmul(users_emb.transpose(1, 2), pos_emb)
-        neg_H_ui = torch.matmul(users_emb.transpose(1, 2), neg_emb)
+        # # Calculate pairwise correlations for positive and negative pairs
+        # pos_H_ui = torch.matmul(users_emb.transpose(1, 2), pos_emb)
+        # neg_H_ui = torch.matmul(users_emb.transpose(1, 2), neg_emb)
         
-        # Calculate scores
-        pos_scores = (pos_H_ui * self.Ws).sum(dim=[-2,-1])
-        neg_scores = (neg_H_ui * self.Ws).sum(dim=[-2,-1])
+        # # Calculate scores
+        # pos_scores = (pos_H_ui * self.Ws).sum(dim=[-2,-1])
+        # neg_scores = (neg_H_ui * self.Ws).sum(dim=[-2,-1])
+
+        pos_scores = torch.sum(torch.matmul(users_emb, pos_emb.transpose(1, 2)), dim=-1)
+        neg_scores = torch.sum(torch.matmul(users_emb, neg_emb.transpose(1, 2)), dim=-1)
         
         # BPR loss
         loss = torch.mean(F.softplus(neg_scores - pos_scores))
@@ -437,18 +432,20 @@ class DLightGCN(BasicModel):
         users_emb = all_users[users]  # shape: (batch_size, dim, K)
         items_emb = all_items[items]  # shape: (batch_size, dim, K)
         
-        # Calculate pairwise correlations matrix (H_ui)
-        # users_emb: (batch_size, dim, K), items_emb: (batch_size, dim, K)
-        # H_ui: (batch_size, K, K)
-        H_ui = torch.matmul(users_emb.transpose(1, 2), items_emb)
+        # # Calculate pairwise correlations matrix (H_ui)
+        # # users_emb: (batch_size, dim, K), items_emb: (batch_size, dim, K)
+        # # H_ui: (batch_size, K, K)
+        # H_ui = torch.matmul(users_emb.transpose(1, 2), items_emb)
         
-        # Calculate final scores using learnable weight matrix Ws
-        # Ws: (K, K)
-        # weighted_H: (batch_size, K, K)
-        weighted_H = H_ui * self.Ws
+        # # Calculate final scores using learnable weight matrix Ws
+        # # Ws: (K, K)
+        # # weighted_H: (batch_size, K, K)
+        # weighted_H = H_ui * self.Ws
         
-        # Sum over both K dimensions to get final score
-        # scores: (batch_size,)
-        scores = weighted_H.sum(dim=[-2, -1])
+        # # Sum over both K dimensions to get final score
+        # # scores: (batch_size,)
+        # scores = weighted_H.sum(dim=[-2, -1])
+
+        scores = torch.sum(torch.matmul(users_emb, items_emb.transpose(1, 2)), dim=-1)
         
         return scores
