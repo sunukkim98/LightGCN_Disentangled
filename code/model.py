@@ -321,8 +321,6 @@ class DLightGCN(BasicModel):
         
         # 초기 disentanglement 적용
         all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
-        print(all_emb.shape)
-        breakpoint()
         
         if self.config['dropout']:
             if self.training:
