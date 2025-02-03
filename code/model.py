@@ -375,6 +375,10 @@ class DLightGCN(BasicModel):
         """
         all_users, all_items, _, _ = self.computer()
         users_emb = all_users[users]  # (batch_size, dim, K)
+
+        print(f"users_emb shape: {users_emb.shape}")
+        print(f"all_items shape: {all_items.shape}")
+        breakpoint()
         
         # # (batch_size, dim, K) x (n_items, dim, K) -> (batch_size, n_items, K)
         # H_ui = torch.einsum('bdk,ndk->bnk', users_emb, all_items)
