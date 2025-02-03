@@ -148,9 +148,6 @@ class LightGCN(BasicModel):
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
 
-        print(all_emb.shape)
-        breakpoint()
-        
         embs = [all_emb]
         if self.config['dropout']:
             if self.training:
@@ -391,7 +388,8 @@ class DLightGCN(BasicModel):
         # weighted_H = H_ui * self.Ws.sum(-1)
         # rating = weighted_H.sum(dim=-1)
 
-        rating = torch.einsum('bdk,ndk->bn', users_emb, all_items)
+        rating = torch.einsum('bdk,ndk->bnk', users_emb, all_items)
+        rating = torch.sum(rating, dim=-1)
         return self.f(rating)
     
     def getEmbedding(self, users, pos_items, neg_items):
@@ -417,6 +415,10 @@ class DLightGCN(BasicModel):
         # # Calculate scores
         # pos_scores = (pos_H_ui * self.Ws).sum(dim=[-2,-1])
         # neg_scores = (neg_H_ui * self.Ws).sum(dim=[-2,-1])
+        print("users_emb.shape:", users_emb.shape)
+        print("pos_emb.shape:", pos_emb.shape)
+        print("neg_emb.shape:", neg_emb.shape)
+        breakpoint()
 
         pos_scores = torch.sum(torch.matmul(users_emb, pos_emb.transpose(1, 2)), dim=-1)
         neg_scores = torch.sum(torch.matmul(users_emb, neg_emb.transpose(1, 2)), dim=-1)
