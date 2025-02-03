@@ -147,6 +147,10 @@ class LightGCN(BasicModel):
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
         all_emb = torch.cat([users_emb, items_emb])
+
+        print(all_emb.shape)
+        breakpoint()
+        
         embs = [all_emb]
         if self.config['dropout']:
             if self.training:
@@ -320,6 +324,8 @@ class DLightGCN(BasicModel):
         
         # 초기 disentanglement 적용
         all_emb = self.initial_disentangle(all_emb)  # shape: (N, K, dim)
+        print(all_emb.shape)
+        breakpoint()
         
         if self.config['dropout']:
             if self.training:
