@@ -413,13 +413,9 @@ class DLightGCN(BasicModel):
         # # Calculate scores
         # pos_scores = (pos_H_ui * self.Ws).sum(dim=[-2,-1])
         # neg_scores = (neg_H_ui * self.Ws).sum(dim=[-2,-1])
-        print("users_emb.shape:", users_emb.shape)
-        print("pos_emb.shape:", pos_emb.shape)
-        print("neg_emb.shape:", neg_emb.shape)
-        breakpoint()
 
-        pos_scores = torch.sum(torch.matmul(users_emb, pos_emb.transpose(1, 2)), dim=-1)
-        neg_scores = torch.sum(torch.matmul(users_emb, neg_emb.transpose(1, 2)), dim=-1)
+        pos_scores = torch.einsum('bik,bik->b', users_emb, pos_emb)
+        neg_scores = torch.einsum('bik,bik->b', users_emb, neg_emb)
         
         # BPR loss
         loss = torch.mean(F.softplus(neg_scores - pos_scores))
@@ -441,6 +437,10 @@ class DLightGCN(BasicModel):
         # Get specific user-item embeddings
         users_emb = all_users[users]  # shape: (batch_size, dim, K)
         items_emb = all_items[items]  # shape: (batch_size, dim, K)
+
+        print(f"users_emb shape: {users_emb.shape}")
+        print(f"items_emb shape: {items_emb.shape}")
+        breakpoint()
         
         # # Calculate pairwise correlations matrix (H_ui)
         # # users_emb: (batch_size, dim, K), items_emb: (batch_size, dim, K)
