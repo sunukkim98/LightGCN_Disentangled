@@ -385,7 +385,7 @@ class DLightGCN(BasicModel):
         # weighted_H = H_ui * self.Ws.sum(-1)
         # rating = weighted_H.sum(dim=-1)
 
-        rating = torch.sum(torch.matmul(users_emb, all_items.permute(1, 0, 2)), dim=-1)
+        rating = torch.sum(torch.matmul(users_emb, all_items.permute(1, 2, 0)), dim=-1)
         return self.f(rating)
     
     def getEmbedding(self, users, pos_items, neg_items):
