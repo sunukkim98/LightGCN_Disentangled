@@ -212,6 +212,11 @@ class LightGCN(BasicModel):
         all_users, all_items = self.computer()
         users_emb = all_users[users]
         items_emb = all_items[items]
+
+        print(f"users_emb shape: {users_emb.shape}")
+        print(f"items_emb shape: {items_emb.shape}")
+        breakpoint()
+        
         inner_pro = torch.mul(users_emb, items_emb)
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
