@@ -442,10 +442,6 @@ class DLightGCN(BasicModel):
         # Get specific user-item embeddings
         users_emb = all_users[users]  # shape: (batch_size, dim, K)
         items_emb = all_items[items]  # shape: (batch_size, dim, K)
-
-        print(f"users_emb shape: {users_emb.shape}")
-        print(f"items_emb shape: {items_emb.shape}")
-        breakpoint()
         
         # # Calculate pairwise correlations matrix (H_ui)
         # # users_emb: (batch_size, dim, K), items_emb: (batch_size, dim, K)
