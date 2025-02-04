@@ -267,7 +267,7 @@ class DLightGCN(BasicModel):
         # self.act_fn = self.config['act_fn']
 
         # Add learnable weight matrix Ws for factor correlation
-        self.Ws = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
+        # self.Ws = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
         self.f = nn.Sigmoid()
         self.Graph = self.dataset.getSparseGraph()
         print(f"lgn is already to go(dropout:{self.config['dropout']})")
@@ -319,6 +319,10 @@ class DLightGCN(BasicModel):
         """       
         users_emb = self.embedding_user.weight
         items_emb = self.embedding_item.weight
+        
+        print(f"users_emb shape: {users_emb.shape}")
+        print(f"items_emb shape: {items_emb.shape}")
+
         all_emb = torch.cat([users_emb, items_emb])
 
         # # shape이 (N, dim)에서 (N, K, dim)으로 변경되어야 함
