@@ -258,6 +258,9 @@ class DLightGCN(BasicModel):
         self.embedding_item = torch.nn.Embedding(
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         
+        # Settings for Score
+        self.W_s = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
+        
         if self.config['pretrain'] == 0:
             nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
@@ -318,7 +321,7 @@ class DLightGCN(BasicModel):
         Disentangled Light Graph Convolution propagation
         """       
         # users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, dim / K]
-        # items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_users, K, dim / K]
+        # items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_items, K, dim / K]
 
         users_emb = self.disentangle_embedding(
             self.embedding_user.weight,
@@ -388,13 +391,23 @@ class DLightGCN(BasicModel):
 
         # rating = self.f(torch.matmul(users_emb, items_emb.t()))
 
-        factor_ratings = []
-        for k in range(self.K):
-            score_k = torch.matmul(users_emb[:, k, :], items_emb[:, k, :].t()) # [batch_size, num_items]
-            factor_ratings.append(score_k)
+        # factor_ratings = []
+        # for k in range(self.K):
+        #     score_k = torch.matmul(users_emb[:, k, :], items_emb[:, k, :].t()) # [batch_size, num_items]
+        #     factor_ratings.append(score_k)
 
-        rating = torch.stack(factor_ratings).sum(dim = 0) # [batch_size, num_items]
-        rating = self.f(rating)
+        # rating = torch.stack(factor_ratings).sum(dim = 0) # [batch_size, num_items]
+        # rating = self.f(rating)
+
+        # Compute H_ui
+        H_ui = []
+        for user_emb in users_emb: # [K, dim / K]
+            h_row = torch.matmul(users_emb, items_emb.transpose(1, 2)) # [K, num_items, K]
+            H_ui.append(h_row)
+        H_ui = torch.stack(H_ui)
+
+        score = torch.einsum('bnik,ik->bn', H_ui, self.W_s) # [batch_size, num_items]
+        rating = self.f(score)
 
         return rating
     
@@ -412,32 +425,39 @@ class DLightGCN(BasicModel):
         (users_emb, pos_emb, neg_emb, 
         userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
 
-        # reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-        #                  posEmb0.norm(2).pow(2)  +
-        #                  negEmb0.norm(2).pow(2))/float(len(users))
+        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
+                         posEmb0.norm(2).pow(2)  +
+                         negEmb0.norm(2).pow(2))/float(len(users))
+        
         # pos_scores = torch.mul(users_emb, pos_emb)
         # pos_scores = torch.sum(pos_scores, dim=1)
         # neg_scores = torch.mul(users_emb, neg_emb)
         # neg_scores = torch.sum(neg_scores, dim=1)
         # loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
 
-        pos_scores = []
-        neg_scores = []
-        for k in range(self.K):
-            pos_k = torch.sum(torch.mul(users_emb[:, k, :], pos_emb[:, k, :]), dim=1) # [batch_size]
-            neg_k = torch.sum(torch.mul(users_emb[:, k, :], neg_emb[:, k, :]), dim=1) # [batch_size]
-            pos_scores.append(pos_k)
-            neg_scores.append(neg_k)
+        # pos_scores = []
+        # neg_scores = []
+        # for k in range(self.K):
+        #     pos_k = torch.sum(torch.mul(users_emb[:, k, :], pos_emb[:, k, :]), dim=1) # [batch_size]
+        #     neg_k = torch.sum(torch.mul(users_emb[:, k, :], neg_emb[:, k, :]), dim=1) # [batch_size]
+        #     pos_scores.append(pos_k)
+        #     neg_scores.append(neg_k)
         
-        pos_scores = torch.stack(pos_scores).sum(dim=0) # [batch_size]
-        neg_scores = torch.stack(neg_scores).sum(dim=0) # [batch_size]
+        # pos_scores = torch.stack(pos_scores).sum(dim=0) # [batch_size]
+        # neg_scores = torch.stack(neg_scores).sum(dim=0) # [batch_size]
+        
+        # loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
+        
+        H_ui_pos = torch.matmul(users_emb, pos_emb.transpose(2, 1)) # [batch_size, K, K]
 
-        reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
-                         posEmb0.norm(2).pow(2)  +
-                         negEmb0.norm(2).pow(2))/float(len(users))
-        
+        H_ui_neg = torch.matmul(users_emb, neg_emb.transpose(2, 1)) # [batch_size, K, K]
+
+        # Score calculation
+        pos_scores = torch.sum(H_ui_pos * self.W_s, dim=(1, 2)) # [batch_size]
+        neg_scores = torch.sum(H_ui_neg * self.W_s, dim=(1, 2)) # [batch_size]
+
         loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
-        
+
         return loss, reg_loss
        
     def forward(self, users, items):
@@ -448,10 +468,13 @@ class DLightGCN(BasicModel):
         # inner_pro = torch.mul(users_emb, items_emb)
         # gamma     = torch.sum(inner_pro, dim=1)
 
-        factor_scores = []
-        for k in range(self.K):
-            score_k = torch.sum(torch.mul(users_emb[:, k, :], items_emb[:, k, :]), dim=1)
-            factor_scores.append(score_k)
+        # factor_scores = []
+        # for k in range(self.K):
+        #     score_k = torch.sum(torch.mul(users_emb[:, k, :], items_emb[:, k, :]), dim=1)
+        #     factor_scores.append(score_k)
         
-        gamma = torch.stack(factor_scores).sum(dim=0)
+        # gamma = torch.stack(factor_scores).sum(dim=0)
+
+        H_ui = torch.matmul(users_emb, items_emb.transpose(2, 1)) # [batch_size, K, K]
+        gamma = torch.sum(H_ui * self.W_s, dim=(1, 2)) # [batch_size]
         return gamma
