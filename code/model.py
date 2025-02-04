@@ -322,6 +322,7 @@ class DLightGCN(BasicModel):
         
         print(f"users_emb shape: {users_emb.shape}")
         print(f"items_emb shape: {items_emb.shape}")
+        breakpoint()
 
         all_emb = torch.cat([users_emb, items_emb])
 
