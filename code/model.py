@@ -336,6 +336,11 @@ class DLightGCN(BasicModel):
         items = torch.stack(final_items, dim=1) # [num_items, K, dim / K]
         _users = torch.stack(all_users, dim=2) # [num_users, n_layers + 1, K, dim / K]
         _items = torch.stack(all_items, dim=2) # [num_items, n_layers + 1, K, dim / K]
+        print(f"users shape: {users.shape}")
+        print(f"items shape: {items.shape}")
+        print(f"_users shape: {_users.shape}")
+        print(f"_items shape: {_items.shape}")
+        breakpoint()
 
         users = users.reshape(self.num_users, -1) # [num_users, dim]
         items = items.reshape(self.num_items, -1) # [num_items, dim]
