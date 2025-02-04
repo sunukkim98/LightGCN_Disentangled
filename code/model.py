@@ -241,6 +241,17 @@ class DLightGCN(BasicModel):
         self.K = self.config['num_factors']
         assert self.latent_dim % self.K == 0, "latent_dim must be divided by num_factors K"
 
+        # Settings for FC Layer
+        self.fc_users = nn.ModuleList([
+            nn.Linear(self.latent_dim, self.latent_dim // self.K)
+            for _ in range(self.K)
+        ])
+        self.fc_items = nn.ModuleList([
+            nn.Linear(self.latent_dim, self.latent_dim // self.K)
+            for _ in range(self.K)
+        ])
+        self.act_fn = self.config['act_fn']
+
         # Original embedding initialization
         self.embedding_user = torch.nn.Embedding(
             num_embeddings=self.num_users, embedding_dim=self.latent_dim)
@@ -250,6 +261,14 @@ class DLightGCN(BasicModel):
         if self.config['pretrain'] == 0:
             nn.init.normal_(self.embedding_user.weight, std=0.1)
             nn.init.normal_(self.embedding_item.weight, std=0.1)
+
+            for fc in self.fc_users:
+                nn.init.normal_(fc.weight, std=0.1)
+                nn.init.zeros_(fc.bias)
+            for fc in self.fc_items:
+                nn.init.normal_(fc.weight, std=0.1)
+                nn.init.zeros_(fc.bias)
+            
             world.cprint('use NORMAL distribution initilizer')
         else:
             self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
@@ -280,12 +299,35 @@ class DLightGCN(BasicModel):
             graph = self.__dropout_x(self.Graph, keep_prob)
         return graph
     
+    def disentangle_embedding(self, emb, fc_layers):
+        """
+        Disentangle embedding into K factors
+        """
+        batch_size = emb.size(0)
+        factors = []
+
+        for k in range(self.K):
+            factor_k = fc_layers[k](emb) # [num_nodes, latent_dim // K]
+            factor_k = self.act_fn(factor_k)
+            factors.append(factor_k)
+
+        return torch.stack(factors, dim=1) # [num_nodes, K, latent_dim // K]
+    
     def computer(self):
         """
         Disentangled Light Graph Convolution propagation
         """       
-        users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, dim / K]
-        items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_users, K, dim / K]
+        # users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, dim / K]
+        # items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_users, K, dim / K]
+
+        user_emb = self.disentangle_embedding(
+            self.embedding_user.weight,
+            self.fc_users
+        )
+        item_emb = self.disentangle_embedding(
+            self.embedding_item.weight,
+            self.fc_items
+        )
         
         if self.config['dropout']:
             if self.training:
