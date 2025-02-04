@@ -320,11 +320,11 @@ class DLightGCN(BasicModel):
         # users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, dim / K]
         # items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_users, K, dim / K]
 
-        user_emb = self.disentangle_embedding(
+        users_emb = self.disentangle_embedding(
             self.embedding_user.weight,
             self.fc_users
         )
-        item_emb = self.disentangle_embedding(
+        items_emb = self.disentangle_embedding(
             self.embedding_item.weight,
             self.fc_items
         )
