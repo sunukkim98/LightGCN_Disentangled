@@ -336,24 +336,24 @@ class DLightGCN(BasicModel):
         items = torch.stack(final_items, dim=1) # [num_items, K, dim / K]
         _users = torch.stack(all_users, dim=2) # [num_users, n_layers + 1, K, dim / K]
         _items = torch.stack(all_items, dim=2) # [num_items, n_layers + 1, K, dim / K]
-        print(f"users shape: {users.shape}")
-        print(f"items shape: {items.shape}")
-        print(f"_users shape: {_users.shape}")
-        print(f"_items shape: {_items.shape}")
-        breakpoint()
-
-        users = users.reshape(self.num_users, -1) # [num_users, dim]
-        items = items.reshape(self.num_items, -1) # [num_items, dim]
-        _users = _users.reshape(self.num_users, self.n_layers + 1, -1) # [num_users, n_layers + 1, K, dim / K]
-        _items = _items.reshape(self.num_items, self.n_layers + 1, -1) # [num_items, n_layers + 1, K, dim / K]
         
         return users, items, _users, _items
     
     def getUsersRating(self, users):
         all_users, all_items, _, _ = self.computer()
-        users_emb = all_users[users.long()]
-        items_emb = all_items
-        rating = self.f(torch.matmul(users_emb, items_emb.t()))
+        users_emb = all_users[users.long()] # [batch_size, K, dim / K]
+        items_emb = all_items # [num_items, K, dim / K]
+
+        # rating = self.f(torch.matmul(users_emb, items_emb.t()))
+
+        factor_ratings = []
+        for k in range(self.K):
+            score_k = torch.matmul(users_emb[:, k, :], items_emb[:, k, :].t()) # [batch_size, num_items]
+            factor_ratings.append(score_k)
+
+        rating = torch.stack(factor_ratings).sum(dim = 0) # [batch_size, num_items]
+        rating = self.f(rating)
+
         return rating
     
     def getEmbedding(self, users, pos_items, neg_items):
@@ -369,13 +369,30 @@ class DLightGCN(BasicModel):
     def bpr_loss(self, users, pos, neg):
         (users_emb, pos_emb, neg_emb, 
         userEmb0,  posEmb0, negEmb0) = self.getEmbedding(users.long(), pos.long(), neg.long())
+
+        # reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
+        #                  posEmb0.norm(2).pow(2)  +
+        #                  negEmb0.norm(2).pow(2))/float(len(users))
+        # pos_scores = torch.mul(users_emb, pos_emb)
+        # pos_scores = torch.sum(pos_scores, dim=1)
+        # neg_scores = torch.mul(users_emb, neg_emb)
+        # neg_scores = torch.sum(neg_scores, dim=1)
+        # loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
+
+        pos_scores = []
+        neg_scores = []
+        for k in range(self.K):
+            pos_k = torch.sum(torch.mul(users_emb[:, k, :], pos_emb[:, k, :]), dim=1) # [batch_size]
+            neg_k = torch.sum(torch.mul(users_emb[:, k, :], neg_emb[:, k, :]), dim=1) # [batch_size]
+            pos_scores.append(pos_k)
+            neg_scores.append(neg_k)
+        
+        pos_scores = torch.stack(pos_scores).sum(dim=0) # [batch_size]
+        neg_scores = torch.stack(neg_scores).sum(dim=0) # [batch_size]
+
         reg_loss = (1/2)*(userEmb0.norm(2).pow(2) + 
                          posEmb0.norm(2).pow(2)  +
                          negEmb0.norm(2).pow(2))/float(len(users))
-        pos_scores = torch.mul(users_emb, pos_emb)
-        pos_scores = torch.sum(pos_scores, dim=1)
-        neg_scores = torch.mul(users_emb, neg_emb)
-        neg_scores = torch.sum(neg_scores, dim=1)
         
         loss = torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
         
@@ -384,8 +401,15 @@ class DLightGCN(BasicModel):
     def forward(self, users, items):
         # compute embedding
         all_users, all_items = self.computer()
-        users_emb = all_users[users]
-        items_emb = all_items[items]        
-        inner_pro = torch.mul(users_emb, items_emb)
-        gamma     = torch.sum(inner_pro, dim=1)
+        users_emb = all_users[users] # [batch_size, K, dim / K]
+        items_emb = all_items[items] # [batch_size, K, dim / K]
+        # inner_pro = torch.mul(users_emb, items_emb)
+        # gamma     = torch.sum(inner_pro, dim=1)
+
+        factor_scores = []
+        for k in range(self.K):
+            score_k = torch.sum(torch.mul(users_emb[:, k, :], items_emb[:, k, :]), dim=1)
+            factor_scores.append(score_k)
+        
+        gamma = torch.stack(factor_scores).sum(dim=0)
         return gamma
