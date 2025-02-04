@@ -400,11 +400,11 @@ class DLightGCN(BasicModel):
         # rating = self.f(rating)
 
         # Compute H_ui
-        H_ui = []
-        for user_emb in users_emb: # [K, dim / K]
-            h_row = torch.matmul(users_emb, items_emb.transpose(1, 2)) # [K, num_items, K]
-            H_ui.append(h_row)
-        H_ui = torch.stack(H_ui)
+        users_emb_expanded = users_emb.unsqueeze(2) # [batch_size, K, 1, dim / K]
+        items_emb_expanded = items_emb.permute(1, 0, 2).unsqueeze(0) # [1, K, num_items, dim / K]
+
+        H_ui = torch.matmul(users_emb_expanded,
+                            items_emb_expanded.transpose(-1, -2))
 
         score = torch.einsum('bnik,ik->bn', H_ui, self.W_s) # [batch_size, num_items]
         rating = self.f(score)
