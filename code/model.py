@@ -212,11 +212,6 @@ class LightGCN(BasicModel):
         all_users, all_items = self.computer()
         users_emb = all_users[users]
         items_emb = all_items[items]
-
-        print(f"users_emb shape: {users_emb.shape}")
-        print(f"items_emb shape: {items_emb.shape}")
-        breakpoint()
-        
         inner_pro = torch.mul(users_emb, items_emb)
         gamma     = torch.sum(inner_pro, dim=1)
         return gamma
@@ -386,8 +381,8 @@ class DLightGCN(BasicModel):
     
     def getUsersRating(self, users):
         all_users, all_items, _, _ = self.computer()
-        users_emb = all_users[users.long()] # [batch_size, K, dim / K]
-        items_emb = all_items # [num_items, K, dim / K]
+        users_emb = all_users[users.long()] # [batch_size, K, dim]
+        items_emb = all_items # [num_items, K, dim]
 
         # rating = self.f(torch.matmul(users_emb, items_emb.t()))
 
@@ -400,13 +395,8 @@ class DLightGCN(BasicModel):
         # rating = self.f(rating)
 
         # Compute H_ui
-        users_emb_expanded = users_emb.unsqueeze(2) # [batch_size, K, 1, dim / K]
-        items_emb_expanded = items_emb.permute(1, 0, 2).unsqueeze(0) # [1, K, num_items, dim / K]
-
-        H_ui = torch.matmul(users_emb_expanded,
-                            items_emb_expanded.transpose(-1, -2))
-
-        score = torch.einsum('bnik,ik->bn', H_ui, self.W_s) # [batch_size, num_items]
+        H_ui = torch.einsum('bkd,nmd->bknm', users_emb, items_emb)
+        score = torch.einsum('bknm,km->bn', H_ui, self.W_s)
         rating = self.f(score)
 
         return rating
