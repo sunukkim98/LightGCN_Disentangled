@@ -236,16 +236,16 @@ class DLightGCN(BasicModel):
         self.K = self.config['num_factors']
         assert self.latent_dim % self.K == 0, "latent_dim must be divided by num_factors K"
 
-        # Settings for FC Layer
-        self.fc_users = nn.ModuleList([
-            nn.Linear(self.latent_dim, self.latent_dim // self.K)
-            for _ in range(self.K)
-        ])
-        self.fc_items = nn.ModuleList([
-            nn.Linear(self.latent_dim, self.latent_dim // self.K)
-            for _ in range(self.K)
-        ])
-        self.act_fn = self.config['act_fn']
+        # # Settings for FC Layer
+        # self.fc_users = nn.ModuleList([
+        #     nn.Linear(self.latent_dim, self.latent_dim // self.K)
+        #     for _ in range(self.K)
+        # ])
+        # self.fc_items = nn.ModuleList([
+        #     nn.Linear(self.latent_dim, self.latent_dim // self.K)
+        #     for _ in range(self.K)
+        # ])
+        # self.act_fn = self.config['act_fn']
 
         # Original embedding initialization
         self.embedding_user = torch.nn.Embedding(
@@ -254,20 +254,28 @@ class DLightGCN(BasicModel):
             num_embeddings=self.num_items, embedding_dim=self.latent_dim)
         
         # Settings for Score
-        self.W_s = nn.Parameter(torch.randn(self.K, self.K) * 0.1)
+        self.W_s = nn.Parameter(torch.empty(self.K, self.K))
         
         if self.config['pretrain'] == 0:
-            nn.init.normal_(self.embedding_user.weight, std=0.1)
-            nn.init.normal_(self.embedding_item.weight, std=0.1)
+            # nn.init.normal_(self.embedding_user.weight, std=0.1)
+            # nn.init.normal_(self.embedding_item.weight, std=0.1)
 
-            for fc in self.fc_users:
-                nn.init.normal_(fc.weight, std=0.1)
-                nn.init.zeros_(fc.bias)
-            for fc in self.fc_items:
-                nn.init.normal_(fc.weight, std=0.1)
-                nn.init.zeros_(fc.bias)
+            # xavier uniform 초기화 적용
+            nn.init.xavier_uniform_(self.embedding_user.weight, gain=1)
+            nn.init.xavier_uniform_(self.embedding_item.weight, gain=1)
+
+            # for fc in self.fc_users:
+            #     # nn.init.normal_(fc.weight, std=0.1)
+            #     nn.init.xavier_uniform_(fc.weight, gain=1)
+            #     nn.init.zeros_(fc.bias)
+            # for fc in self.fc_items:
+            #     # nn.init.normal_(fc.weight, std=0.1)
+            #     nn.init.xavier_uniform_(fc.weight, gain=1)
+            #     nn.init.zeros_(fc.bias)
+
+            nn.init.ones_(self.W_s)
             
-            world.cprint('use NORMAL distribution initilizer')
+            world.cprint('use Xavier uniform initilizer')
         else:
             self.embedding_user.weight.data.copy_(torch.from_numpy(self.config['user_emb']))
             self.embedding_item.weight.data.copy_(torch.from_numpy(self.config['item_emb']))
@@ -315,17 +323,17 @@ class DLightGCN(BasicModel):
         """
         Disentangled Light Graph Convolution propagation
         """       
-        # users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, dim / K]
-        # items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_items, K, dim / K]
+        users_emb = self.embedding_user.weight.view(self.num_users, self.K, -1) # shape: [num_users, K, recdim]
+        items_emb = self.embedding_item.weight.view(self.num_items, self.K, -1) # shape: [num_items, K, recdim]
 
-        users_emb = self.disentangle_embedding(
-            self.embedding_user.weight,
-            self.fc_users
-        )
-        items_emb = self.disentangle_embedding(
-            self.embedding_item.weight,
-            self.fc_items
-        )
+        # users_emb = self.disentangle_embedding(
+        #     self.embedding_user.weight,
+        #     self.fc_users
+        # )
+        # items_emb = self.disentangle_embedding(
+        #     self.embedding_item.weight,
+        #     self.fc_items
+        # )
         
         if self.config['dropout']:
             if self.training:
