@@ -18,3 +18,4 @@ embs/
 logs/
 code/*.sbatch
 slurm_logs/
+data 2/
