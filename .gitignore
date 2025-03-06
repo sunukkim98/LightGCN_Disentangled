@@ -17,5 +17,6 @@ __pycache__/
 embs/
 logs/
 code/*.sbatch
+code/*.sh
 slurm_logs/
 data 2/
